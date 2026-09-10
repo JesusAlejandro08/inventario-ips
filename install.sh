@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_NAME="inventario-ips"
+DB_NAME="inventario_ips"
+DB_USER="inventario_app"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$SCRIPT_DIR/backend"
+FRONTEND_DIR="$SCRIPT_DIR"
+WEB_DIR="/var/www/$APP_NAME"
+SERVICE_FILE="/etc/systemd/system/$APP_NAME.service"
+NGINX_FILE="/etc/nginx/sites-available/$APP_NAME"
+NGINX_LINK="/etc/nginx/sites-enabled/$APP_NAME"
+
+log() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
+ok() { printf '\033[1;32m✔ %s\033[0m\n' "$1"; }
+fail() { printf '\033[1;31m✘ %s\033[0m\n' "$1" >&2; exit 1; }
+
+trap 'printf "\n\033[1;31mInstalación interrumpida en la línea %s.\033[0m\n" "$LINENO" >&2' ERR
+
+[[ $EUID -eq 0 ]] || fail "Ejecuta: sudo ./install.sh"
+[[ -f "$FRONTEND_DIR/package.json" ]] || fail "No se encontró package.json en la raíz."
+[[ -f "$BACKEND_DIR/package.json" ]] || fail "No se encontró backend/package.json."
+
+if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
+  APP_USER="$SUDO_USER"
+else
+  APP_USER="${INSTALL_USER:-root}"
+fi
+APP_GROUP="$(id -gn "$APP_USER")"
+
+detect_ip() {
+  local detected
+  detected="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}')"
+  if [[ -z "$detected" ]]; then
+    detected="$(hostname -I 2>/dev/null | tr ' ' '\n' | awk '/^[0-9]+\./ && $0 !~ /^127\./ {print; exit}')"
+  fi
+  printf '%s' "$detected"
+}
+
+DEFAULT_IP="$(detect_ip)"
+[[ -n "$DEFAULT_IP" ]] || fail "No fue posible detectar una dirección IPv4."
+
+printf 'IP detectada: %s\n' "$DEFAULT_IP"
+read -r -p "IP o dominio para acceder a la aplicación [$DEFAULT_IP]: " PUBLIC_HOST
+PUBLIC_HOST="${PUBLIC_HOST:-$DEFAULT_IP}"
+
+read -r -p "Nombre del administrador [Administrador de Sistemas]: " ADMIN_NAME
+ADMIN_NAME="${ADMIN_NAME:-Administrador de Sistemas}"
+read -r -p "Usuario administrador [admin]: " ADMIN_USER
+ADMIN_USER="${ADMIN_USER:-admin}"
+while true; do
+  read -r -s -p "Contraseña del administrador (mínimo 10 caracteres): " ADMIN_PASSWORD
+  printf '\n'
+  [[ ${#ADMIN_PASSWORD} -ge 10 ]] && break
+  printf 'La contraseña debe contener al menos 10 caracteres.\n'
+done
+
+DB_PASSWORD="$(openssl rand -hex 24)"
+JWT_SECRET="$(openssl rand -hex 32)"
+
+log "Instalando dependencias del sistema"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y nodejs npm mariadb-server mariadb-client nginx rsync openssl curl
+
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+(( NODE_MAJOR >= 20 )) || fail "Se requiere Node.js 20 o posterior. Versión encontrada: $(node -v)"
+
+systemctl enable --now mariadb
+
+log "Instalando dependencias de la aplicación"
+if [[ -f "$FRONTEND_DIR/package-lock.json" ]]; then
+  sudo -u "$APP_USER" npm ci --prefix "$FRONTEND_DIR"
+else
+  sudo -u "$APP_USER" npm install --prefix "$FRONTEND_DIR"
+fi
+if [[ -f "$BACKEND_DIR/package-lock.json" ]]; then
+  sudo -u "$APP_USER" npm ci --prefix "$BACKEND_DIR"
+else
+  sudo -u "$APP_USER" npm install --prefix "$BACKEND_DIR"
+fi
+
+log "Creando base de datos y tablas"
+mariadb <<SQL
+CREATE DATABASE IF NOT EXISTS ${DB_NAME}
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT SELECT, INSERT, UPDATE, DELETE ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
+FLUSH PRIVILEGES;
+USE ${DB_NAME};
+
+CREATE TABLE IF NOT EXISTS segmentos_red (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  direccion_red VARCHAR(15) NOT NULL,
+  prefijo TINYINT UNSIGNED NOT NULL,
+  gateway VARCHAR(15) NULL,
+  vlan SMALLINT UNSIGNED NULL,
+  ubicacion VARCHAR(120) NOT NULL,
+  descripcion VARCHAR(255) NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_segmento_red (direccion_red, prefijo),
+  CONSTRAINT chk_prefijo CHECK (prefijo BETWEEN 0 AND 32),
+  CONSTRAINT chk_vlan CHECK (vlan IS NULL OR vlan BETWEEN 1 AND 4094)
+);
+
+CREATE TABLE IF NOT EXISTS direcciones_ip (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  segmento_id INT UNSIGNED NOT NULL,
+  direccion_ip VARCHAR(15) NOT NULL,
+  hostname VARCHAR(100) NULL,
+  dispositivo VARCHAR(120) NOT NULL,
+  ubicacion VARCHAR(120) NOT NULL,
+  responsable VARCHAR(120) NULL,
+  estado ENUM('Disponible','En uso','Reservada','Inactiva') NOT NULL DEFAULT 'Disponible',
+  observaciones TEXT NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_direccion_ip (direccion_ip),
+  KEY idx_segmento_id (segmento_id),
+  KEY idx_estado (estado),
+  CONSTRAINT fk_ip_segmento FOREIGN KEY (segmento_id)
+    REFERENCES segmentos_red(id) ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  usuario VARCHAR(60) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  rol ENUM('Administrador','Consulta') NOT NULL DEFAULT 'Consulta',
+  activo BOOLEAN NOT NULL DEFAULT TRUE,
+  ultimo_acceso DATETIME NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_usuario (usuario)
+);
+
+CREATE TABLE IF NOT EXISTS auditoria (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT UNSIGNED NULL,
+  accion ENUM('INICIAR_SESION','CREAR','ACTUALIZAR','ELIMINAR') NOT NULL,
+  entidad VARCHAR(50) NOT NULL,
+  entidad_id VARCHAR(50) NULL,
+  detalles JSON NULL,
+  direccion_ip VARCHAR(45) NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_auditoria_usuario (usuario_id),
+  KEY idx_auditoria_entidad (entidad, entidad_id),
+  KEY idx_auditoria_fecha (creado_en),
+  CONSTRAINT fk_auditoria_usuario FOREIGN KEY (usuario_id)
+    REFERENCES usuarios(id) ON UPDATE CASCADE ON DELETE SET NULL
+);
+SQL
+
+log "Generando configuración privada"
+install -m 600 -o "$APP_USER" -g "$APP_GROUP" /dev/null "$BACKEND_DIR/.env"
+cat > "$BACKEND_DIR/.env" <<ENV
+PORT=3000
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=${DB_USER}
+DB_PASSWORD=${DB_PASSWORD}
+DB_NAME=${DB_NAME}
+FRONTEND_URL=http://${PUBLIC_HOST}
+JWT_SECRET=${JWT_SECRET}
+JWT_EXPIRES_IN=8h
+ENV
+chown "$APP_USER:$APP_GROUP" "$BACKEND_DIR/.env"
+chmod 600 "$BACKEND_DIR/.env"
+
+ADMIN_EXISTS="$(mariadb -N -s -e "SELECT COUNT(*) FROM ${DB_NAME}.usuarios WHERE usuario='${ADMIN_USER//\'/\'\'}';")"
+if [[ "$ADMIN_EXISTS" == "0" ]]; then
+  sudo -u "$APP_USER" env \
+    ADMIN_NOMBRE="$ADMIN_NAME" \
+    ADMIN_USUARIO="$ADMIN_USER" \
+    ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+    npm run crear-admin --prefix "$BACKEND_DIR"
+else
+  printf 'El usuario administrador %s ya existe; se conservará.\n' "$ADMIN_USER"
+fi
+unset ADMIN_PASSWORD
+
+log "Compilando frontend"
+sudo -u "$APP_USER" env VITE_API_URL=/api npm run build --prefix "$FRONTEND_DIR"
+install -d -m 755 "$WEB_DIR"
+rsync -a --delete "$FRONTEND_DIR/dist/" "$WEB_DIR/"
+chown -R www-data:www-data "$WEB_DIR"
+
+log "Creando servicio systemd"
+cat > "$SERVICE_FILE" <<UNIT
+[Unit]
+Description=API del inventario de direcciones IP
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=simple
+User=${APP_USER}
+Group=${APP_GROUP}
+WorkingDirectory=${BACKEND_DIR}
+EnvironmentFile=${BACKEND_DIR}/.env
+ExecStart=$(command -v node) ${BACKEND_DIR}/src/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now "$APP_NAME"
+
+log "Configurando Nginx"
+cat > "$NGINX_FILE" <<NGINX
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${PUBLIC_HOST};
+    root ${WEB_DIR};
+    index index.html;
+
+    access_log /var/log/nginx/${APP_NAME}-access.log;
+    error_log /var/log/nginx/${APP_NAME}-error.log;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+    }
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location ~ /\\. {
+        deny all;
+    }
+}
+NGINX
+
+ln -sfn "$NGINX_FILE" "$NGINX_LINK"
+nginx -t
+systemctl enable --now nginx
+systemctl reload nginx
+
+if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
+  ufw allow 'Nginx HTTP' >/dev/null
+fi
+
+log "Verificando servicios"
+systemctl is-active --quiet "$APP_NAME" || fail "El backend no inició. Revisa: journalctl -u $APP_NAME"
+systemctl is-active --quiet nginx || fail "Nginx no inició."
+curl --fail --silent "http://127.0.0.1:3000/api/salud" >/dev/null
+curl --fail --silent "http://127.0.0.1/api/salud" >/dev/null
+
+ok "Instalación completada"
+printf '\nAplicación: http://%s\nUsuario administrador: %s\n' "$PUBLIC_HOST" "$ADMIN_USER"
+printf 'Servicio: systemctl status %s\n' "$APP_NAME"
