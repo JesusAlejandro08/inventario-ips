@@ -62,7 +62,7 @@ JWT_SECRET="$(openssl rand -hex 32)"
 log "Instalando dependencias del sistema"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y nodejs mariadb-server mariadb-client nginx rsync openssl curl
+apt-get install -y nodejs npm mariadb-server mariadb-client nginx rsync openssl curl
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 (( NODE_MAJOR >= 20 )) || fail "Se requiere Node.js 20 o posterior. Versión encontrada: $(node -v)"
