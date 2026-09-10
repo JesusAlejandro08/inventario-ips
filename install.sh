@@ -307,7 +307,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON ${DB_NAME}.*
   TO '${DB_USER}'@'127.0.0.1';
-=======
+
 GRANT
   SELECT,
   INSERT,
@@ -329,7 +329,6 @@ GRANT
   EVENT
 ON ${DB_NAME}.*
 TO '${DB_USER}'@'127.0.0.1';
->>>>>>> 2f5f630 (Corrige instalación y selección automática de puertos)
 
 FLUSH PRIVILEGES;
 
