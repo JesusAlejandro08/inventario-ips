@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR"
 WEB_DIR="/var/www/$APP_NAME"
+BACKUP_DIR="/var/backups/$APP_NAME"
 SERVICE_FILE="/etc/systemd/system/$APP_NAME.service"
 NGINX_FILE="/etc/nginx/sites-available/$APP_NAME"
 NGINX_LINK="/etc/nginx/sites-enabled/$APP_NAME"
@@ -298,6 +299,7 @@ ALTER USER
   '${DB_USER}'@'127.0.0.1'
   IDENTIFIED BY '${DB_PASSWORD}';
 
+<<<<<<< HEAD
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON ${DB_NAME}.*
   TO '${DB_USER}'@'localhost';
@@ -305,6 +307,29 @@ GRANT SELECT, INSERT, UPDATE, DELETE
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON ${DB_NAME}.*
   TO '${DB_USER}'@'127.0.0.1';
+=======
+GRANT
+  SELECT,
+  INSERT,
+  UPDATE,
+  DELETE,
+  SHOW VIEW,
+  TRIGGER,
+  EVENT
+ON ${DB_NAME}.*
+TO '${DB_USER}'@'localhost';
+
+GRANT
+  SELECT,
+  INSERT,
+  UPDATE,
+  DELETE,
+  SHOW VIEW,
+  TRIGGER,
+  EVENT
+ON ${DB_NAME}.*
+TO '${DB_USER}'@'127.0.0.1';
+>>>>>>> 2f5f630 (Corrige instalación y selección automática de puertos)
 
 FLUSH PRIVILEGES;
 
@@ -402,6 +427,14 @@ CREATE TABLE IF NOT EXISTS auditoria (
 );
 SQL
 
+log "Configurando almacenamiento de respaldos"
+
+install -d \
+  -m 750 \
+  -o "$APP_USER" \
+  -g "$APP_GROUP" \
+  "$BACKUP_DIR"
+
 log "Generando configuración privada"
 
 install \
@@ -480,6 +513,7 @@ TimeoutStopSec=20
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
+ReadWritePaths=${BACKUP_DIR}
 
 [Install]
 WantedBy=multi-user.target

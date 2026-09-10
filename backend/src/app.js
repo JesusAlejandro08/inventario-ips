@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import respaldosRoutes from "./routes/respaldos.routes.js";
 
 import auditoriaRoutes from "./routes/auditoria.routes.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -82,7 +83,7 @@ app.use("/api/auditoria", autenticar, auditoriaRoutes);
  * El rol se valida dentro de usuarios.routes.js.
  */
 app.use("/api/usuarios", autenticar, auditarCambios("usuario"), usuariosRoutes);
-
+app.use("/api/respaldos", autenticar, respaldosRoutes);
 /*
  * Estos middleware siempre deben permanecer al final.
  */
