@@ -44,34 +44,11 @@ DEFAULT_IP="$(detect_ip)"
 printf 'IP detectada: %s\n' "$DEFAULT_IP"
 read -r -p "IP o dominio para acceder a la aplicación [$DEFAULT_IP]: " PUBLIC_HOST
 PUBLIC_HOST="${PUBLIC_HOST:-$DEFAULT_IP}"
-[[ "$PUBLIC_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Introduce solamente una IPv4 o un dominio, sin http:// ni rutas."
-
-DEFAULT_WEB_PORT=80
-PORT_80_INFO="$(ss -ltnp 'sport = :80' 2>/dev/null || true)"
-if [[ -n "$PORT_80_INFO" ]] && ! grep -q nginx <<<"$PORT_80_INFO"; then
-  DEFAULT_WEB_PORT=8080
-  printf 'El puerto 80 está ocupado por otro servicio; se propone el puerto 8080.\n'
-fi
-read -r -p "Puerto web [$DEFAULT_WEB_PORT]: " WEB_PORT
-WEB_PORT="${WEB_PORT:-$DEFAULT_WEB_PORT}"
-[[ "$WEB_PORT" =~ ^[0-9]+$ ]] && (( WEB_PORT >= 1 && WEB_PORT <= 65535 )) || fail "Puerto web no válido."
-
-SELECTED_PORT_INFO="$(ss -ltnp "sport = :${WEB_PORT}" 2>/dev/null || true)"
-if [[ -n "$SELECTED_PORT_INFO" ]] && ! grep -q nginx <<<"$SELECTED_PORT_INFO"; then
-  fail "El puerto ${WEB_PORT} ya está ocupado. Ejecuta: sudo ss -ltnp 'sport = :${WEB_PORT}'"
-fi
-
-if [[ "$WEB_PORT" == "80" ]]; then
-  PUBLIC_ORIGIN="http://${PUBLIC_HOST}"
-else
-  PUBLIC_ORIGIN="http://${PUBLIC_HOST}:${WEB_PORT}"
-fi
 
 read -r -p "Nombre del administrador [Administrador de Sistemas]: " ADMIN_NAME
 ADMIN_NAME="${ADMIN_NAME:-Administrador de Sistemas}"
 read -r -p "Usuario administrador [admin]: " ADMIN_USER
 ADMIN_USER="${ADMIN_USER:-admin}"
-[[ "$ADMIN_USER" =~ ^[A-Za-z0-9._-]{3,60}$ ]] || fail "El usuario debe tener entre 3 y 60 caracteres válidos."
 while true; do
   read -r -s -p "Contraseña del administrador (mínimo 10 caracteres): " ADMIN_PASSWORD
   printf '\n'
@@ -79,23 +56,16 @@ while true; do
   printf 'La contraseña debe contener al menos 10 caracteres.\n'
 done
 
+DB_PASSWORD="$(openssl rand -hex 24)"
+JWT_SECRET="$(openssl rand -hex 32)"
+
 log "Instalando dependencias del sistema"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y nodejs mariadb-server mariadb-client nginx rsync openssl curl
+apt-get install -y nodejs npm mariadb-server mariadb-client nginx rsync openssl curl
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 (( NODE_MAJOR >= 20 )) || fail "Se requiere Node.js 20 o posterior. Versión encontrada: $(node -v)"
-command -v npm >/dev/null 2>&1 || fail "Node.js fue instalado, pero npm no está disponible."
-
-EXISTING_DB_PASSWORD=""
-EXISTING_JWT_SECRET=""
-if [[ -f "$BACKEND_DIR/.env" ]]; then
-  EXISTING_DB_PASSWORD="$(sed -n 's/^DB_PASSWORD=//p' "$BACKEND_DIR/.env" | head -n 1)"
-  EXISTING_JWT_SECRET="$(sed -n 's/^JWT_SECRET=//p' "$BACKEND_DIR/.env" | head -n 1)"
-fi
-DB_PASSWORD="${EXISTING_DB_PASSWORD:-$(openssl rand -hex 24)}"
-JWT_SECRET="${EXISTING_JWT_SECRET:-$(openssl rand -hex 32)}"
 
 systemctl enable --now mariadb
 
@@ -117,10 +87,7 @@ CREATE DATABASE IF NOT EXISTS ${DB_NAME}
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
-CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
-ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT SELECT, INSERT, UPDATE, DELETE ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
-GRANT SELECT, INSERT, UPDATE, DELETE ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';
 FLUSH PRIVILEGES;
 USE ${DB_NAME};
 
@@ -198,7 +165,7 @@ DB_PORT=3306
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
 DB_NAME=${DB_NAME}
-FRONTEND_URL=${PUBLIC_ORIGIN}
+FRONTEND_URL=http://${PUBLIC_HOST}
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRES_IN=8h
 ENV
@@ -249,14 +216,13 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable "$APP_NAME"
-systemctl restart "$APP_NAME"
+systemctl enable --now "$APP_NAME"
 
 log "Configurando Nginx"
 cat > "$NGINX_FILE" <<NGINX
 server {
-    listen ${WEB_PORT};
-    listen [::]:${WEB_PORT};
+    listen 80;
+    listen [::]:80;
     server_name ${PUBLIC_HOST};
     root ${WEB_DIR};
     index index.html;
@@ -286,31 +252,20 @@ server {
 NGINX
 
 ln -sfn "$NGINX_FILE" "$NGINX_LINK"
-if [[ "$WEB_PORT" != "80" ]]; then
-  rm -f /etc/nginx/sites-enabled/default
-fi
 nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
 
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
-  ufw allow "${WEB_PORT}/tcp" >/dev/null
+  ufw allow 'Nginx HTTP' >/dev/null
 fi
 
 log "Verificando servicios"
 systemctl is-active --quiet "$APP_NAME" || fail "El backend no inició. Revisa: journalctl -u $APP_NAME"
 systemctl is-active --quiet nginx || fail "Nginx no inició."
-BACKEND_READY=false
-for _ in {1..20}; do
-  if curl --fail --silent "http://127.0.0.1:3000/api/salud" >/dev/null; then
-    BACKEND_READY=true
-    break
-  fi
-  sleep 1
-done
-[[ "$BACKEND_READY" == "true" ]] || fail "La API no respondió después de 20 segundos."
-curl --fail --silent -H "Host: ${PUBLIC_HOST}" "http://127.0.0.1:${WEB_PORT}/api/salud" >/dev/null
+curl --fail --silent "http://127.0.0.1:3000/api/salud" >/dev/null
+curl --fail --silent "http://127.0.0.1/api/salud" >/dev/null
 
 ok "Instalación completada"
-printf '\nAplicación: %s\nUsuario administrador: %s\n' "$PUBLIC_ORIGIN" "$ADMIN_USER"
+printf '\nAplicación: http://%s\nUsuario administrador: %s\n' "$PUBLIC_HOST" "$ADMIN_USER"
 printf 'Servicio: systemctl status %s\n' "$APP_NAME"
