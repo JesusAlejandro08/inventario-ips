@@ -131,7 +131,7 @@ export async function crearRespaldo(req, res, next) {
 
 export async function listarRespaldos(req, res, next) {
   try {
-    await mkdir(DIRECTORIO_RESPPALDOS, {
+    await mkdir(DIRECTORIO_RESPALDOS, {
       recursive: true,
       mode: 0o750,
     });
