@@ -18,8 +18,11 @@ function PanelRespaldos() {
     setError("");
 
     try {
-      const { archivo, nombre } =
-        await crearRespaldoBaseDatos();
+      const { archivo, nombre } = await crearRespaldoBaseDatos();
+
+      if (!archivo || archivo.size === 0) {
+        throw new Error("El servidor devolvió un respaldo vacío.");
+      }
 
       const url = URL.createObjectURL(archivo);
       const enlace = document.createElement("a");
@@ -30,11 +33,11 @@ function PanelRespaldos() {
       enlace.click();
       enlace.remove();
 
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 2000);
 
-      setMensaje(
-        `Respaldo ${nombre} creado y descargado correctamente.`,
-      );
+      setMensaje(`Respaldo ${nombre} creado y descargado correctamente.`);
     } catch (errorSolicitud) {
       setError(errorSolicitud.message);
     } finally {
@@ -52,8 +55,8 @@ function PanelRespaldos() {
         <div>
           <h2>Respaldos de la base de datos</h2>
           <p>
-            Genera una copia comprimida de los segmentos,
-            direcciones IP, usuarios y registros de auditoría.
+            Genera una copia comprimida de los segmentos, direcciones IP,
+            usuarios y registros de auditoría.
           </p>
         </div>
       </div>
@@ -64,24 +67,16 @@ function PanelRespaldos() {
         <div>
           <strong>Respaldo protegido</strong>
           <p>
-            La operación está disponible únicamente para
-            administradores. El archivo se genera en el servidor
-            y se descarga en formato SQL comprimido.
+            La operación está disponible únicamente para administradores. El
+            archivo se genera en el servidor y se descarga en formato SQL
+            comprimido.
           </p>
         </div>
       </div>
 
-      {mensaje && (
-        <div className="mensaje-exito">
-          {mensaje}
-        </div>
-      )}
+      {mensaje && <div className="mensaje-exito">{mensaje}</div>}
 
-      {error && (
-        <div className="alerta-error">
-          {error}
-        </div>
-      )}
+      {error && <div className="alerta-error">{error}</div>}
 
       <button
         type="button"
@@ -95,9 +90,7 @@ function PanelRespaldos() {
           <Download size={19} />
         )}
 
-        {generando
-          ? "Generando respaldo..."
-          : "Crear y descargar respaldo"}
+        {generando ? "Generando respaldo..." : "Crear y descargar respaldo"}
       </button>
     </section>
   );
