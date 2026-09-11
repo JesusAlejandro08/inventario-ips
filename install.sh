@@ -233,7 +233,7 @@ apt-get install -y \
   openssl \
   curl \
   sudo \
-  util-linux \
+  util-linux 
 command -v node >/dev/null 2>&1 ||
   fail "Node.js no está instalado."
 
