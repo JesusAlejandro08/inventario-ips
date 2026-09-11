@@ -5,12 +5,7 @@ import {
   validarIPv4,
 } from "../utils/red.js";
 
-const estadosPermitidos = [
-  "Disponible",
-  "En uso",
-  "Reservada",
-  "Inactiva",
-];
+const estadosPermitidos = ["Disponible", "En uso", "Reservada", "Inactiva"];
 
 function prepararDireccion(registro) {
   return {
@@ -42,7 +37,7 @@ async function buscarSegmento(id) {
       FROM segmentos_red
       WHERE id = ?
     `,
-    [id]
+    [id],
   );
 
   return registros[0] || null;
@@ -50,11 +45,7 @@ async function buscarSegmento(id) {
 
 function validarDireccionEnSegmento(ip, segmento) {
   if (
-    !ipPerteneceAlSegmento(
-      ip,
-      segmento.direccion_red,
-      Number(segmento.prefijo)
-    )
+    !ipPerteneceAlSegmento(ip, segmento.direccion_red, Number(segmento.prefijo))
   ) {
     return `La IP ${ip} no pertenece al segmento ${segmento.direccion_red}/${segmento.prefijo}.`;
   }
@@ -65,10 +56,7 @@ function validarDireccionEnSegmento(ip, segmento) {
     return "No puedes asignar la dirección de red.";
   }
 
-  const broadcast = obtenerBroadcast(
-    segmento.direccion_red,
-    prefijo
-  );
+  const broadcast = obtenerBroadcast(segmento.direccion_red, prefijo);
 
   if (prefijo <= 30 && ip === broadcast) {
     return "No puedes asignar la dirección de broadcast.";
@@ -106,20 +94,11 @@ export async function listarDirecciones(req, res, next) {
         )
       `);
 
-      parametros.push(
-        texto,
-        texto,
-        texto,
-        texto,
-        texto,
-        texto
-      );
+      parametros.push(texto, texto, texto, texto, texto, texto);
     }
 
     const where =
-      condiciones.length > 0
-        ? `WHERE ${condiciones.join(" AND ")}`
-        : "";
+      condiciones.length > 0 ? `WHERE ${condiciones.join(" AND ")}` : "";
 
     const registros = await consultar(
       `
@@ -135,7 +114,7 @@ export async function listarDirecciones(req, res, next) {
         ${where}
         ORDER BY INET_ATON(d.direccion_ip)
       `,
-      parametros
+      parametros,
     );
 
     res.json(registros.map(prepararDireccion));
@@ -159,7 +138,7 @@ export async function obtenerDireccion(req, res, next) {
           ON s.id = d.segmento_id
         WHERE d.id = ?
       `,
-      [req.params.id]
+      [req.params.id],
     );
 
     if (registros.length === 0) {
@@ -219,10 +198,7 @@ export async function crearDireccion(req, res, next) {
       });
     }
 
-    const errorSegmento = validarDireccionEnSegmento(
-      ip.trim(),
-      segmento
-    );
+    const errorSegmento = validarDireccionEnSegmento(ip.trim(), segmento);
 
     if (errorSegmento) {
       return res.status(400).json({
@@ -253,7 +229,7 @@ export async function crearDireccion(req, res, next) {
         responsable?.trim() || null,
         estado,
         observaciones?.trim() || null,
-      ]
+      ],
     );
 
     const registros = await consultar(
@@ -269,7 +245,7 @@ export async function crearDireccion(req, res, next) {
           ON s.id = d.segmento_id
         WHERE d.id = ?
       `,
-      [resultado.insertId]
+      [resultado.insertId],
     );
 
     res.status(201).json(prepararDireccion(registros[0]));
@@ -323,10 +299,7 @@ export async function actualizarDireccion(req, res, next) {
       });
     }
 
-    const errorSegmento = validarDireccionEnSegmento(
-      ip.trim(),
-      segmento
-    );
+    const errorSegmento = validarDireccionEnSegmento(ip.trim(), segmento);
 
     if (errorSegmento) {
       return res.status(400).json({
@@ -358,7 +331,7 @@ export async function actualizarDireccion(req, res, next) {
         estado,
         observaciones?.trim() || null,
         req.params.id,
-      ]
+      ],
     );
 
     if (resultado.affectedRows === 0) {
@@ -380,7 +353,7 @@ export async function actualizarDireccion(req, res, next) {
           ON s.id = d.segmento_id
         WHERE d.id = ?
       `,
-      [req.params.id]
+      [req.params.id],
     );
 
     res.json(prepararDireccion(registros[0]));
@@ -399,7 +372,7 @@ export async function eliminarDireccion(req, res, next) {
   try {
     const resultado = await consultar(
       "DELETE FROM direcciones_ip WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
 
     if (resultado.affectedRows === 0) {
@@ -409,6 +382,151 @@ export async function eliminarDireccion(req, res, next) {
     }
 
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
+
+function protegerCeldaCsv(valor) {
+  if (valor === null || valor === undefined) {
+    return "";
+  }
+
+  let texto = String(valor);
+
+  // Evita que Excel interprete contenido como fórmula.
+  if (/^[=+\-@]/.test(texto)) {
+    texto = `'${texto}`;
+  }
+
+  if (
+    texto.includes(",") ||
+    texto.includes('"') ||
+    texto.includes("\n") ||
+    texto.includes("\r")
+  ) {
+    texto = `"${texto.replaceAll('"', '""')}"`;
+  }
+
+  return texto;
+}
+
+function fechaNombreArchivo() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export async function exportarDireccionesCsv(req, res, next) {
+  try {
+    const condiciones = [];
+    const parametros = [];
+
+    if (req.query.segmentoId && req.query.segmentoId !== "Todos") {
+      condiciones.push("d.segmento_id = ?");
+      parametros.push(req.query.segmentoId);
+    }
+
+    if (req.query.estado && req.query.estado !== "Todos") {
+      condiciones.push("d.estado = ?");
+      parametros.push(req.query.estado);
+    }
+
+    if (req.query.buscar) {
+      condiciones.push(`
+        (
+          d.direccion_ip LIKE ?
+          OR d.hostname LIKE ?
+          OR d.dispositivo LIKE ?
+          OR d.ubicacion LIKE ?
+          OR d.responsable LIKE ?
+          OR d.observaciones LIKE ?
+          OR s.nombre LIKE ?
+        )
+      `);
+
+      const busqueda = `%${req.query.buscar}%`;
+
+      parametros.push(
+        busqueda,
+        busqueda,
+        busqueda,
+        busqueda,
+        busqueda,
+        busqueda,
+        busqueda,
+      );
+    }
+
+    const where =
+      condiciones.length > 0 ? `WHERE ${condiciones.join(" AND ")}` : "";
+
+    const direcciones = await consultar(
+      `
+        SELECT
+          d.direccion_ip,
+          d.hostname,
+          d.dispositivo,
+          s.nombre AS segmento,
+          CONCAT(s.direccion_red, '/', s.prefijo) AS cidr,
+          s.vlan,
+          d.ubicacion,
+          d.responsable,
+          d.estado,
+          d.observaciones,
+          d.creado_en
+        FROM direcciones_ip d
+        INNER JOIN segmentos_red s
+          ON s.id = d.segmento_id
+        ${where}
+        ORDER BY INET_ATON(d.direccion_ip) ASC
+      `,
+      parametros,
+    );
+
+    const encabezados = [
+      "Dirección IP",
+      "Hostname",
+      "Dispositivo",
+      "Segmento",
+      "CIDR",
+      "VLAN",
+      "Ubicación",
+      "Responsable",
+      "Estado",
+      "Observaciones",
+      "Fecha de registro",
+    ];
+
+    const filas = direcciones.map((direccion) =>
+      [
+        direccion.direccion_ip,
+        direccion.hostname,
+        direccion.dispositivo,
+        direccion.segmento,
+        direccion.cidr,
+        direccion.vlan,
+        direccion.ubicacion,
+        direccion.responsable,
+        direccion.estado,
+        direccion.observaciones,
+        direccion.creado_en ? new Date(direccion.creado_en).toISOString() : "",
+      ]
+        .map(protegerCeldaCsv)
+        .join(","),
+    );
+
+    // BOM para que Excel reconozca correctamente UTF-8.
+    const contenido = `\uFEFF${[
+      encabezados.map(protegerCeldaCsv).join(","),
+      ...filas,
+    ].join("\r\n")}`;
+
+    const nombre = `inventario-direcciones-${fechaNombreArchivo()}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${nombre}"`);
+    res.setHeader("Cache-Control", "no-store");
+
+    res.status(200).send(contenido);
   } catch (error) {
     next(error);
   }
