@@ -504,22 +504,26 @@ User=${APP_USER}
 Group=${APP_GROUP}
 WorkingDirectory=${BACKEND_DIR}
 EnvironmentFile=${BACKEND_DIR}/.env
+ExecStartPre=+/usr/bin/ln -sfn ${NGINX_FILE} ${NGINX_LINK}
+ExecStartPre=+/usr/sbin/nginx -t
 ExecStart=$(command -v node) ${BACKEND_DIR}/src/server.js
+ExecStartPost=+/usr/bin/systemctl reload nginx
+ExecReload=+/usr/sbin/nginx -t
+ExecReload=+/usr/bin/systemctl reload nginx
+ExecStopPost=+/usr/bin/rm -f ${NGINX_LINK}
+ExecStopPost=-+/usr/sbin/nginx -t
+ExecStopPost=-+/usr/bin/systemctl reload nginx
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=20
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ReadWritePaths=${BACKUP_DIR}
+ReadWritePaths=${BACKUP_DIR} /etc/nginx/sites-enabled
 
 [Install]
 WantedBy=multi-user.target
 UNIT
-DASHBOARD_SERVICE_FILE="/etc/systemd/system/$APP_NAME-dashboard.service"
-STACK_TARGET_FILE="/etc/systemd/system/$APP_NAME-stack.target"
-BACKEND_DROPIN_DIR="/etc/systemd/system/$APP_NAME.service.d"
-BACKEND_DROPIN_FILE="$BACKEND_DROPIN_DIR/stack.conf"
 
 systemctl daemon-reload
 
@@ -571,61 +575,20 @@ if command -v ufw >/dev/null 2>&1 &&
   ufw allow "${WEB_PORT}/tcp" >/dev/null
 fi
 
-log "Verificando servicios"
+log "Iniciando frontend y backend como un solo servicio"
 
-log "Creando control unificado de frontend y backend"
-
-cat >"$DASHBOARD_SERVICE_FILE" <<UNIT
-[Unit]
-Description=Dashboard web del inventario de direcciones IP
-After=nginx.service
-Requires=nginx.service
-PartOf=${APP_NAME}-stack.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-
-ExecStart=/usr/bin/ln -sfn ${NGINX_FILE} ${NGINX_LINK}
-ExecStart=/usr/sbin/nginx -t
-ExecStart=/usr/bin/systemctl reload nginx
-
-ExecStop=/usr/bin/rm -f ${NGINX_LINK}
-ExecStop=-/usr/sbin/nginx -t
-ExecStop=-/usr/bin/systemctl reload nginx
-
-[Install]
-WantedBy=${APP_NAME}-stack.target
-UNIT
-
-cat >"$STACK_TARGET_FILE" <<UNIT
-[Unit]
-Description=Frontend y backend del inventario de direcciones IP
-Requires=${APP_NAME}.service
-Requires=${APP_NAME}-dashboard.service
-After=network.target nginx.service mariadb.service
-After=${APP_NAME}.service ${APP_NAME}-dashboard.service
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-install -d -m 755 "$BACKEND_DROPIN_DIR"
-
-cat >"$BACKEND_DROPIN_FILE" <<UNIT
-[Unit]
-PartOf=${APP_NAME}-stack.target
-UNIT
+# Retira las unidades agrupadoras de versiones anteriores, si existen.
+systemctl disable --now "${APP_NAME}-stack.target" 2>/dev/null || true
+rm -f -- \
+  "/etc/systemd/system/${APP_NAME}-stack.target" \
+  "/etc/systemd/system/${APP_NAME}-dashboard.service"
+rm -rf -- "/etc/systemd/system/${APP_NAME}.service.d"
 
 systemctl daemon-reload
+systemctl enable "${APP_NAME}.service"
+systemctl restart "${APP_NAME}.service"
 
-# El backend ya no arrancará por separado.
-systemctl disable "${APP_NAME}.service" 2>/dev/null || true
-
-# El target inicia automáticamente frontend y backend.
-systemctl enable "${APP_NAME}-stack.target"
-
-systemctl restart "${APP_NAME}-stack.target"
+log "Verificando servicios"
 
 systemctl is-active --quiet "$APP_NAME" ||
   fail "El backend no inició. Revisa: journalctl -u $APP_NAME"
@@ -662,3 +625,8 @@ printf 'Usuario administrador: %s\n' "$ADMIN_USER"
 printf 'Puerto web: %s\n' "$WEB_PORT"
 printf 'Puerto interno del backend: %s\n' "$BACKEND_PORT"
 printf 'Servicio: systemctl status %s\n' "$APP_NAME"
+printf '\nControl unificado:\n'
+printf '  Iniciar:   sudo systemctl start %s\n' "$APP_NAME"
+printf '  Detener:   sudo systemctl stop %s\n' "$APP_NAME"
+printf '  Reiniciar: sudo systemctl restart %s\n' "$APP_NAME"
+printf '  Recargar:  sudo systemctl reload %s\n' "$APP_NAME"
