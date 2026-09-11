@@ -1685,3 +1685,58 @@ button:disabled {
     width: 100%;
   }
 }
+
+.lista-respaldos {
+  margin-top: 30px;
+}
+
+.lista-respaldos h3 {
+  margin: 0 0 16px;
+}
+
+.estado-respaldos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 130px;
+  color: #64748b;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+}
+
+.nombre-respaldo {
+  font-family: monospace;
+  overflow-wrap: anywhere;
+}
+
+.acciones-respaldo {
+  display: flex;
+  gap: 8px;
+}
+
+.acciones-respaldo button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.acciones-respaldo button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.acciones-respaldo .boton-eliminar-respaldo {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.respaldos-encabezado .boton-recargar {
+  margin-left: auto;
+}

@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, rm, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { pipeline } from "node:stream/promises";
@@ -14,6 +14,23 @@ function fechaArchivo() {
     .replaceAll(":", "-")
     .replace("T", "_")
     .replace(/\.\d{3}Z$/, "");
+}
+
+function validarNombre(nombre) {
+  return /^inventario_ips-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.sql\.gz$/.test(
+    nombre,
+  );
+}
+
+function obtenerRutaSegura(nombre) {
+  if (!validarNombre(nombre)) {
+    const error = new Error("El nombre del respaldo no es válido.");
+
+    error.status = 400;
+    throw error;
+  }
+
+  return path.join(DIRECTORIO_RESPALDOS, nombre);
 }
 
 function ejecutarDump(archivo) {
@@ -106,6 +123,85 @@ export async function crearRespaldo(req, res, next) {
   } catch (error) {
     if (archivo) {
       await rm(archivo, { force: true }).catch(() => {});
+    }
+
+    next(error);
+  }
+}
+
+export async function listarRespaldos(req, res, next) {
+  try {
+    await mkdir(DIRECTORIO_RESPPALDOS, {
+      recursive: true,
+      mode: 0o750,
+    });
+
+    const entradas = await readdir(DIRECTORIO_RESPALDOS, {
+      withFileTypes: true,
+    });
+
+    const respaldos = await Promise.all(
+      entradas
+        .filter((entrada) => entrada.isFile() && validarNombre(entrada.name))
+        .map(async (entrada) => {
+          const ruta = path.join(DIRECTORIO_RESPALDOS, entrada.name);
+
+          const informacion = await stat(ruta);
+
+          return {
+            nombre: entrada.name,
+            tamano: informacion.size,
+            creadoEn: informacion.mtime,
+          };
+        }),
+    );
+
+    respaldos.sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
+
+    res.json({ respaldos });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function descargarRespaldo(req, res, next) {
+  try {
+    const archivo = obtenerRutaSegura(req.params.nombre);
+
+    await stat(archivo);
+
+    res.download(archivo, req.params.nombre, (error) => {
+      if (error && !res.headersSent) {
+        next(error);
+      }
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({
+        mensaje: "El respaldo no existe.",
+      });
+    }
+
+    next(error);
+  }
+}
+
+export async function eliminarRespaldo(req, res, next) {
+  try {
+    const archivo = obtenerRutaSegura(req.params.nombre);
+
+    await unlink(archivo);
+
+    await unlink(`${archivo}.sha256`).catch(() => {});
+
+    res.json({
+      mensaje: "Respaldo eliminado correctamente.",
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({
+        mensaje: "El respaldo no existe.",
+      });
     }
 
     next(error);

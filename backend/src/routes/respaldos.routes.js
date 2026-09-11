@@ -1,9 +1,18 @@
 import { Router } from "express";
-import { crearRespaldo } from "../controllers/respaldos.controller.js";
+import {
+  crearRespaldo,
+  descargarRespaldo,
+  eliminarRespaldo,
+  listarRespaldos,
+} from "../controllers/respaldos.controller.js";
 import { permitirRoles } from "../middleware/auth.middleware.js";
-
 const router = Router();
 
-router.post("/", permitirRoles("Administrador"), crearRespaldo);
+router.use(permitirRoles("Administrador"));
+
+router.get("/", listarRespaldos);
+router.post("/", crearRespaldo);
+router.get("/:nombre", descargarRespaldo);
+router.delete("/:nombre", eliminarRespaldo);
 
 export default router;

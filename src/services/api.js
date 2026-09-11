@@ -197,6 +197,40 @@ export function listarAuditoria(filtros = {}) {
   return solicitar(`/auditoria${consulta ? `?${consulta}` : ""}`);
 }
 
+async function procesarDescarga(respuesta, nombrePredeterminado) {
+  if (!respuesta.ok) {
+    const contenido = await respuesta.json().catch(() => null);
+
+    if (respuesta.status === 401) {
+      cerrarSesion();
+    }
+
+    throw new Error(
+      contenido?.mensaje ||
+        `Error ${respuesta.status}: no fue posible descargar el respaldo.`,
+    );
+  }
+
+  const archivo = await respuesta.blob();
+
+  if (archivo.size === 0) {
+    throw new Error("El servidor devolvió un archivo vacío.");
+  }
+
+  const disposicion = respuesta.headers.get("Content-Disposition") || "";
+
+  const coincidencia = disposicion.match(/filename="?([^";]+)"?/i);
+
+  return {
+    archivo,
+    nombre: coincidencia?.[1] || nombrePredeterminado,
+  };
+}
+
+export function listarRespaldos() {
+  return solicitar("/respaldos");
+}
+
 export async function crearRespaldoBaseDatos() {
   const token = obtenerToken();
 
@@ -207,30 +241,26 @@ export async function crearRespaldoBaseDatos() {
     },
   });
 
-  if (!respuesta.ok) {
-    const contenido = await respuesta.json().catch(() => null);
+  return procesarDescarga(respuesta, "inventario_ips-respaldo.sql.gz");
+}
 
-    if (respuesta.status === 401) {
-      cerrarSesion();
-    }
+export async function descargarRespaldo(nombre) {
+  const token = obtenerToken();
 
-    throw new Error(
-      contenido?.mensaje ||
-        `Error ${respuesta.status}: no fue posible crear el respaldo.`,
-    );
-  }
+  const respuesta = await fetch(
+    `${API_URL}/respaldos/${encodeURIComponent(nombre)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
 
-  const archivo = await respuesta.blob();
-  const disposicion = respuesta.headers.get("Content-Disposition") || "";
+  return procesarDescarga(respuesta, nombre);
+}
 
-  const coincidencia = disposicion.match(/filename="?([^";]+)"?/i);
-
-  const nombre =
-    coincidencia?.[1] ||
-    `inventario_ips-${new Date().toISOString().replaceAll(":", "-")}.sql.gz`;
-
-  return {
-    archivo,
-    nombre,
-  };
+export function eliminarRespaldo(nombre) {
+  return solicitar(`/respaldos/${encodeURIComponent(nombre)}`, {
+    method: "DELETE",
+  });
 }
