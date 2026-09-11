@@ -271,3 +271,49 @@ export function restaurarRespaldo(nombre, confirmacion) {
     body: JSON.stringify({ confirmacion }),
   });
 }
+
+export async function exportarDireccionesCsv(filtros = {}) {
+  const parametros = new URLSearchParams();
+
+  if (filtros.buscar) {
+    parametros.set("buscar", filtros.buscar);
+  }
+
+  if (filtros.estado && filtros.estado !== "Todos") {
+    parametros.set("estado", filtros.estado);
+  }
+
+  if (filtros.segmentoId && filtros.segmentoId !== "Todos") {
+    parametros.set("segmentoId", filtros.segmentoId);
+  }
+
+  const consulta = parametros.toString();
+  const token = obtenerToken();
+
+  const respuesta = await fetch(
+    `${API_URL}/direcciones/exportar/csv${consulta ? `?${consulta}` : ""}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!respuesta.ok) {
+    const contenido = await respuesta.json().catch(() => null);
+
+    throw new Error(
+      contenido?.mensaje || "No fue posible exportar el inventario.",
+    );
+  }
+
+  const archivo = await respuesta.blob();
+  const disposicion = respuesta.headers.get("Content-Disposition") || "";
+
+  const coincidencia = disposicion.match(/filename="?([^"]+)"?/);
+
+  return {
+    archivo,
+    nombre: coincidencia?.[1] || "inventario-direcciones.csv",
+  };
+}

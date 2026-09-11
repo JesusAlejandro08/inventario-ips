@@ -18,6 +18,7 @@ import {
   Users,
   X,
   DatabaseBackup,
+  Download,
 } from "lucide-react";
 import {
   actualizarDireccion,
@@ -30,6 +31,7 @@ import {
   listarDirecciones,
   listarSegmentos,
   obtenerSesion,
+  exportarDireccionesCsv,
 } from "./services/api";
 
 import DetalleSegmento from "./components/DetalleSegmento";
@@ -67,6 +69,7 @@ function App() {
   const [filtroSegmento, setFiltroSegmento] = useState("Todos");
   const [cargando, setCargando] = useState(true);
   const [errorGeneral, setErrorGeneral] = useState("");
+  const [exportandoCsv, setExportandoCsv] = useState(false);
 
   const [modalDireccion, setModalDireccion] = useState(false);
   const [formDireccion, setFormDireccion] = useState(direccionInicial);
@@ -337,6 +340,40 @@ function App() {
     setModalDireccion(true);
   }
 
+  async function exportarCsv() {
+    setExportandoCsv(true);
+    setErrorGeneral("");
+
+    try {
+      const resultado = await exportarDireccionesCsv({
+        buscar: busqueda.trim(),
+        estado: filtroEstado,
+        segmentoId: filtroSegmento,
+      });
+
+      if (!resultado.archivo || resultado.archivo.size === 0) {
+        throw new Error("El archivo CSV generado está vacío.");
+      }
+
+      const url = URL.createObjectURL(resultado.archivo);
+      const enlace = document.createElement("a");
+
+      enlace.href = url;
+      enlace.download = resultado.nombre;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 2000);
+    } catch (error) {
+      setErrorGeneral(error.message);
+    } finally {
+      setExportandoCsv(false);
+    }
+  }
+
   async function manejarInicioSesion(usuario) {
     setUsuarioSesion(usuario);
     await cargarDatos();
@@ -554,6 +591,20 @@ function App() {
                       <option>Reservada</option>
                       <option>Inactiva</option>
                     </select>
+                    <button
+                      type="button"
+                      className="boton-exportar-csv"
+                      onClick={exportarCsv}
+                      disabled={exportandoCsv || cargando}
+                    >
+                      {exportandoCsv ? (
+                        <LoaderCircle className="girando" size={18} />
+                      ) : (
+                        <Download size={18} />
+                      )}
+
+                      {exportandoCsv ? "Exportando..." : "Exportar CSV"}
+                    </button>
                   </div>
                 )}
               </div>

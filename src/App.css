@@ -1791,3 +1791,47 @@ button:disabled {
   color: #b45309;
   background: #fffbeb;
 }
+
+.boton-exportar-csv {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #b9cdf5;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #165dcc;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.boton-exportar-csv:hover:not(:disabled) {
+  background: #dbeafe;
+  border-color: #74a7ef;
+  transform: translateY(-1px);
+}
+
+.boton-exportar-csv:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .grupo-filtros {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .grupo-filtros select,
+  .boton-exportar-csv {
+    flex: 1 1 190px;
+  }
+}
