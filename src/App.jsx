@@ -3,6 +3,7 @@ import Login from "./components/Login";
 import PanelUsuarios from "./components/PanelUsuarios";
 import PanelAuditoria from "./components/PanelAuditoria";
 import PanelRespaldos from "./components/PanelRespaldos";
+import ModalImportarCsv from "./components/ModalImportarCsv";
 
 import {
   CirclePlus,
@@ -19,6 +20,8 @@ import {
   X,
   DatabaseBackup,
   Download,
+  Upload,
+  CheckCircle2,
 } from "lucide-react";
 import {
   actualizarDireccion,
@@ -70,6 +73,9 @@ function App() {
   const [cargando, setCargando] = useState(true);
   const [errorGeneral, setErrorGeneral] = useState("");
   const [exportandoCsv, setExportandoCsv] = useState(false);
+  const [modalImportarCsv, setModalImportarCsv] = useState(false);
+
+  const [mensajeGeneral, setMensajeGeneral] = useState("");
 
   const [modalDireccion, setModalDireccion] = useState(false);
   const [formDireccion, setFormDireccion] = useState(direccionInicial);
@@ -374,6 +380,15 @@ function App() {
     }
   }
 
+  async function completarImportacion(mensaje) {
+    setModalImportarCsv(false);
+    setMensajeGeneral(mensaje);
+    await cargarDatos();
+
+    setTimeout(() => {
+      setMensajeGeneral("");
+    }, 5000);
+  }
   async function manejarInicioSesion(usuario) {
     setUsuarioSesion(usuario);
     await cargarDatos();
@@ -525,7 +540,12 @@ function App() {
                 </button>
               </div>
             )}
-
+            {mensajeGeneral && (
+              <div className="mensaje-exito">
+                <CheckCircle2 size={19} />
+                <span>{mensajeGeneral}</span>
+              </div>
+            )}
             <div className="estadisticas">
               <article className="tarjeta-estadistica">
                 <span>Direcciones registradas</span>
@@ -591,6 +611,23 @@ function App() {
                       <option>Reservada</option>
                       <option>Inactiva</option>
                     </select>
+
+                    {esAdministrador && (
+                      <button
+                        type="button"
+                        className="boton-importar-csv"
+                        onClick={() => {
+                          setErrorGeneral("");
+                          setMensajeGeneral("");
+                          setModalImportarCsv(true);
+                        }}
+                        disabled={cargando}
+                      >
+                        <Upload size={18} />
+                        Importar CSV
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       className="boton-exportar-csv"
@@ -669,6 +706,14 @@ function App() {
           cerrar={() => setSegmentoDetalle(null)}
           asignarDireccion={asignarDesdeDetalle}
           puedeAsignar={esAdministrador}
+        />
+      )}
+
+      {modalImportarCsv && esAdministrador && (
+        <ModalImportarCsv
+          segmentos={segmentos}
+          cerrar={() => setModalImportarCsv(false)}
+          alImportar={completarImportacion}
         />
       )}
     </main>

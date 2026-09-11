@@ -1,4 +1,4 @@
-import { consultar } from "../database.js";
+import pool, { consultar } from "../database.js";
 import {
   ipPerteneceAlSegmento,
   obtenerBroadcast,
@@ -529,5 +529,230 @@ export async function exportarDireccionesCsv(req, res, next) {
     res.status(200).send(contenido);
   } catch (error) {
     next(error);
+  }
+}
+
+function limpiarTexto(valor) {
+  if (valor === null || valor === undefined) {
+    return "";
+  }
+
+  return String(valor).trim();
+}
+
+function enteroPositivo(valor) {
+  const numero = Number(valor);
+
+  return Number.isInteger(numero) && numero > 0 ? numero : null;
+}
+
+export async function importarDirecciones(req, res, next) {
+  let conexion;
+
+  try {
+    if (req.usuario?.rol !== "Administrador") {
+      return res.status(403).json({
+        mensaje: "Solamente los administradores pueden importar direcciones.",
+      });
+    }
+
+    const registros = req.body?.registros;
+    const confirmar = req.body?.confirmar === true;
+
+    if (!Array.isArray(registros) || registros.length === 0) {
+      return res.status(400).json({
+        mensaje: "El archivo no contiene registros para importar.",
+      });
+    }
+
+    if (registros.length > 500) {
+      return res.status(400).json({
+        mensaje: "Solamente se permiten 500 direcciones por importación.",
+      });
+    }
+
+    const segmentos = await consultar(`
+      SELECT
+        id,
+        nombre,
+        direccion_red,
+        prefijo,
+        gateway
+      FROM segmentos_red
+      ORDER BY id
+    `);
+
+    const segmentosPorId = new Map(
+      segmentos.map((segmento) => [Number(segmento.id), segmento]),
+    );
+
+    const ipsArchivo = new Map();
+
+    for (const registro of registros) {
+      const ip = limpiarTexto(registro.ip);
+
+      ipsArchivo.set(ip, (ipsArchivo.get(ip) || 0) + 1);
+    }
+
+    const ipsExistentes = await consultar(`
+      SELECT direccion_ip
+      FROM direcciones_ip
+    `);
+
+    const conjuntoIpsExistentes = new Set(
+      ipsExistentes.map((registro) => String(registro.direccion_ip)),
+    );
+
+    const resultado = registros.map((registro, indice) => {
+      const fila = indice + 2;
+      const errores = [];
+
+      const segmentoId = enteroPositivo(registro.segmentoId);
+
+      const ip = limpiarTexto(registro.ip);
+      const hostname = limpiarTexto(registro.hostname) || null;
+      const dispositivo = limpiarTexto(registro.dispositivo);
+      const ubicacion = limpiarTexto(registro.ubicacion);
+      const responsable = limpiarTexto(registro.responsable) || null;
+      const estado = limpiarTexto(registro.estado) || "Disponible";
+      const observaciones = limpiarTexto(registro.observaciones) || null;
+
+      if (!segmentoId) {
+        errores.push("El identificador del segmento no es válido.");
+      }
+
+      const segmento = segmentosPorId.get(segmentoId);
+
+      if (segmentoId && !segmento) {
+        errores.push(`El segmento ${segmentoId} no existe.`);
+      }
+
+      if (!validarIPv4(ip)) {
+        errores.push("La dirección IPv4 no es válida.");
+      }
+
+      if (!dispositivo) {
+        errores.push("El dispositivo es obligatorio.");
+      }
+
+      if (!ubicacion) {
+        errores.push("La ubicación es obligatoria.");
+      }
+
+      if (!estadosPermitidos.includes(estado)) {
+        errores.push(`El estado "${estado}" no es válido.`);
+      }
+
+      if (ip && ipsArchivo.get(ip) > 1) {
+        errores.push("La dirección IP está repetida dentro del archivo.");
+      }
+
+      if (ip && conjuntoIpsExistentes.has(ip)) {
+        errores.push("La dirección IP ya está registrada.");
+      }
+
+      if (segmento && validarIPv4(ip)) {
+        const errorSegmento = validarDireccionEnSegmento(ip, segmento);
+
+        if (errorSegmento) {
+          errores.push(errorSegmento);
+        }
+      }
+
+      return {
+        fila,
+        segmentoId,
+        segmento: segmento?.nombre || null,
+        ip,
+        hostname,
+        dispositivo,
+        ubicacion,
+        responsable,
+        estado,
+        observaciones,
+        valido: errores.length === 0,
+        errores,
+      };
+    });
+
+    const validos = resultado.filter((registro) => registro.valido);
+
+    const invalidos = resultado.filter((registro) => !registro.valido);
+
+    if (!confirmar) {
+      return res.json({
+        vistaPrevia: true,
+        total: resultado.length,
+        validos: validos.length,
+        invalidos: invalidos.length,
+        registros: resultado,
+      });
+    }
+
+    if (invalidos.length > 0) {
+      return res.status(400).json({
+        mensaje:
+          "Corrige los registros inválidos antes de confirmar la importación.",
+        vistaPrevia: true,
+        total: resultado.length,
+        validos: validos.length,
+        invalidos: invalidos.length,
+        registros: resultado,
+      });
+    }
+
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+
+    for (const registro of validos) {
+      await conexion.query(
+        `
+          INSERT INTO direcciones_ip (
+            segmento_id,
+            direccion_ip,
+            hostname,
+            dispositivo,
+            ubicacion,
+            responsable,
+            estado,
+            observaciones
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          registro.segmentoId,
+          registro.ip,
+          registro.hostname,
+          registro.dispositivo,
+          registro.ubicacion,
+          registro.responsable,
+          registro.estado,
+          registro.observaciones,
+        ],
+      );
+    }
+
+    await conexion.commit();
+
+    res.status(201).json({
+      mensaje: `${validos.length} direcciones importadas correctamente.`,
+      importados: validos.length,
+    });
+  } catch (error) {
+    if (conexion) {
+      await conexion.rollback().catch(() => {});
+    }
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        mensaje: "Una dirección IP ya fue registrada durante la importación.",
+      });
+    }
+
+    next(error);
+  } finally {
+    if (conexion) {
+      conexion.release();
+    }
   }
 }

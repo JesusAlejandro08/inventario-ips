@@ -4,6 +4,7 @@ import {
   crearDireccion,
   eliminarDireccion,
   exportarDireccionesCsv,
+  importarDirecciones,
   listarDirecciones,
   obtenerDireccion,
 } from "../controllers/direcciones.controller.js";
@@ -11,12 +12,8 @@ import {
 const router = Router();
 
 router.get("/", listarDirecciones);
-
-/*
- * Esta ruta debe estar antes de /:id para evitar
- * que Express interprete "exportar" como un ID.
- */
 router.get("/exportar/csv", exportarDireccionesCsv);
+router.post("/importar", importarDirecciones);
 
 router.get("/:id", obtenerDireccion);
 router.post("/", crearDireccion);

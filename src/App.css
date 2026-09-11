@@ -1835,3 +1835,165 @@ button:disabled {
     flex: 1 1 190px;
   }
 }
+
+.boton-importar-csv {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #a7d8bc;
+  border-radius: 10px;
+  background: #ecfdf3;
+  color: #167244;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.boton-importar-csv:hover:not(:disabled) {
+  background: #d8f8e5;
+  border-color: #6bc492;
+  transform: translateY(-1px);
+}
+
+.modal-importar-csv {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.importacion-contenido {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.selector-csv {
+  width: 100%;
+  min-height: 110px;
+  padding: 22px;
+  border: 2px dashed #a9bfe4;
+  border-radius: 14px;
+  background: #f7faff;
+  color: #175fc3;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.selector-csv:hover:not(:disabled) {
+  border-color: #3278dd;
+  background: #edf5ff;
+}
+
+.selector-csv span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.selector-csv strong {
+  font-size: 1rem;
+}
+
+.selector-csv small {
+  color: #60728e;
+}
+
+.ayuda-importacion {
+  margin-top: 15px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #52637d;
+}
+
+.ayuda-importacion p {
+  margin: 5px 0 0;
+}
+
+.resumen-importacion {
+  margin: 20px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.resumen-importacion article {
+  padding: 15px;
+  border: 1px solid #dbe3ef;
+  border-radius: 11px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.resumen-importacion span {
+  color: #64748b;
+}
+
+.resumen-importacion strong {
+  font-size: 1.5rem;
+}
+
+.resumen-valido strong {
+  color: #16804d;
+}
+
+.resumen-invalido strong {
+  color: #c52f43;
+}
+
+.tabla-importacion {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #dfe6f0;
+  border-radius: 10px;
+}
+
+.validacion-correcta {
+  color: #16804d;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.errores-fila {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.errores-fila span {
+  color: #c52f43;
+  font-size: 0.82rem;
+}
+
+.aviso-importacion {
+  margin: 12px 0 0;
+  color: #64748b;
+}
+
+@media (max-width: 760px) {
+  .resumen-importacion {
+    grid-template-columns: 1fr;
+  }
+
+  .boton-importar-csv,
+  .boton-exportar-csv {
+    width: 100%;
+  }
+}

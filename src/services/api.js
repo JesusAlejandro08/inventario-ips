@@ -317,3 +317,13 @@ export async function exportarDireccionesCsv(filtros = {}) {
     nombre: coincidencia?.[1] || "inventario-direcciones.csv",
   };
 }
+
+export function importarDireccionesCsv(registros, confirmar = false) {
+  return solicitar("/direcciones/importar", {
+    method: "POST",
+    body: JSON.stringify({
+      registros,
+      confirmar,
+    }),
+  });
+}
