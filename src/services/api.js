@@ -264,3 +264,10 @@ export function eliminarRespaldo(nombre) {
     method: "DELETE",
   });
 }
+
+export function restaurarRespaldo(nombre, confirmacion) {
+  return solicitar(`/respaldos/${encodeURIComponent(nombre)}/restaurar`, {
+    method: "POST",
+    body: JSON.stringify({ confirmacion }),
+  });
+}

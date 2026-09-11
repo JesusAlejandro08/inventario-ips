@@ -4,6 +4,7 @@ import {
   Download,
   LoaderCircle,
   RefreshCw,
+  RotateCcw,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -12,6 +13,7 @@ import {
   descargarRespaldo,
   eliminarRespaldo,
   listarRespaldos,
+  restaurarRespaldo,
 } from "../services/api";
 
 function formatoTamano(bytes) {
@@ -34,6 +36,7 @@ function guardarArchivo({ archivo, nombre }) {
 
   enlace.href = url;
   enlace.download = nombre;
+
   document.body.appendChild(enlace);
   enlace.click();
   enlace.remove();
@@ -48,6 +51,7 @@ function PanelRespaldos() {
   const [cargando, setCargando] = useState(true);
   const [generando, setGenerando] = useState(false);
   const [descargando, setDescargando] = useState("");
+  const [restaurando, setRestaurando] = useState("");
   const [eliminando, setEliminando] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
@@ -79,6 +83,7 @@ function PanelRespaldos() {
       const resultado = await crearRespaldoBaseDatos();
 
       guardarArchivo(resultado);
+
       setMensaje(`Respaldo ${resultado.nombre} creado correctamente.`);
 
       await cargarRespaldos();
@@ -102,6 +107,44 @@ function PanelRespaldos() {
       setError(errorSolicitud.message);
     } finally {
       setDescargando("");
+    }
+  }
+
+  async function restaurar(nombre) {
+    const primeraConfirmacion = window.confirm(
+      `¿Restaurar ${nombre}? Los datos actuales serán reemplazados.`,
+    );
+
+    if (!primeraConfirmacion) return;
+
+    const confirmacion = window.prompt("Escribe RESTAURAR para confirmar:");
+
+    if (confirmacion !== "RESTAURAR") {
+      setMensaje("");
+      setError(
+        "La restauración fue cancelada porque la confirmación no coincide.",
+      );
+      return;
+    }
+
+    setRestaurando(nombre);
+    setMensaje("");
+    setError("");
+
+    try {
+      await restaurarRespaldo(nombre, confirmacion);
+
+      setMensaje(
+        "Base de datos restaurada correctamente. Recargando el sistema...",
+      );
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (errorSolicitud) {
+      setError(errorSolicitud.message);
+    } finally {
+      setRestaurando("");
     }
   }
 
@@ -129,6 +172,12 @@ function PanelRespaldos() {
     }
   }
 
+  const operacionEnCurso =
+    generando ||
+    Boolean(descargando) ||
+    Boolean(restaurando) ||
+    Boolean(eliminando);
+
   return (
     <section className="panel panel-respaldos">
       <div className="respaldos-encabezado">
@@ -138,6 +187,7 @@ function PanelRespaldos() {
 
         <div>
           <h2>Respaldos de la base de datos</h2>
+
           <p>Administra las copias de seguridad del inventario.</p>
         </div>
 
@@ -145,7 +195,7 @@ function PanelRespaldos() {
           type="button"
           className="boton-recargar"
           onClick={cargarRespaldos}
-          disabled={cargando}
+          disabled={cargando || operacionEnCurso}
         >
           <RefreshCw size={18} className={cargando ? "girando" : ""} />
           Actualizar
@@ -157,6 +207,7 @@ function PanelRespaldos() {
 
         <div>
           <strong>Almacenamiento protegido</strong>
+
           <p>
             Los respaldos se guardan en el servidor y solamente pueden
             administrarlos usuarios con rol Administrador.
@@ -172,7 +223,7 @@ function PanelRespaldos() {
         type="button"
         className="boton-primario boton-respaldo"
         onClick={generar}
-        disabled={generando}
+        disabled={operacionEnCurso}
       >
         {generando ? (
           <LoaderCircle className="girando" size={19} />
@@ -226,9 +277,10 @@ function PanelRespaldos() {
                       <div className="acciones-respaldo">
                         <button
                           type="button"
-                          title="Descargar"
+                          title="Descargar respaldo"
+                          aria-label={`Descargar ${respaldo.nombre}`}
                           onClick={() => descargar(respaldo.nombre)}
-                          disabled={descargando === respaldo.nombre}
+                          disabled={operacionEnCurso}
                         >
                           {descargando === respaldo.nombre ? (
                             <LoaderCircle className="girando" size={17} />
@@ -239,10 +291,26 @@ function PanelRespaldos() {
 
                         <button
                           type="button"
+                          className="boton-restaurar-respaldo"
+                          title="Restaurar respaldo"
+                          aria-label={`Restaurar ${respaldo.nombre}`}
+                          onClick={() => restaurar(respaldo.nombre)}
+                          disabled={operacionEnCurso}
+                        >
+                          {restaurando === respaldo.nombre ? (
+                            <LoaderCircle className="girando" size={17} />
+                          ) : (
+                            <RotateCcw size={17} />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
                           className="boton-eliminar-respaldo"
-                          title="Eliminar"
+                          title="Eliminar respaldo"
+                          aria-label={`Eliminar ${respaldo.nombre}`}
                           onClick={() => eliminar(respaldo.nombre)}
-                          disabled={eliminando === respaldo.nombre}
+                          disabled={operacionEnCurso}
                         >
                           {eliminando === respaldo.nombre ? (
                             <LoaderCircle className="girando" size={17} />

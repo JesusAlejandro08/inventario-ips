@@ -1786,3 +1786,8 @@ button:disabled {
 .acciones-respaldo {
   justify-content: center;
 }
+
+.acciones-respaldo .boton-restaurar-respaldo {
+  color: #b45309;
+  background: #fffbeb;
+}

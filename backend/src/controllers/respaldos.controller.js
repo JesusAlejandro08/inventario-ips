@@ -1,12 +1,14 @@
+import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rm, stat, unlink } from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 
 const DIRECTORIO_RESPALDOS =
   process.env.BACKUP_DIR || "/var/backups/inventario-ips";
+
+const SCRIPT_RESTAURACION = "/usr/local/lib/inventario-ips/restore-db.sh";
 
 function fechaArchivo() {
   return new Date()
@@ -22,12 +24,15 @@ function validarNombre(nombre) {
   );
 }
 
+function crearError(mensaje, status = 500) {
+  const error = new Error(mensaje);
+  error.status = status;
+  return error;
+}
+
 function obtenerRutaSegura(nombre) {
   if (!validarNombre(nombre)) {
-    const error = new Error("El nombre del respaldo no es válido.");
-
-    error.status = 400;
-    throw error;
+    throw crearError("El nombre del respaldo no es válido.", 400);
   }
 
   return path.join(DIRECTORIO_RESPALDOS, nombre);
@@ -59,37 +64,106 @@ function ejecutarDump(archivo) {
     });
 
     let errores = "";
+    let terminado = false;
 
     proceso.stderr.on("data", (datos) => {
       errores += datos.toString();
+
+      if (errores.length > 10000) {
+        errores = errores.slice(-10000);
+      }
     });
 
-    const comprimir = createGzip({ level: 9 });
+    const comprimir = createGzip({
+      level: 9,
+    });
+
     const destino = createWriteStream(archivo, {
       mode: 0o600,
     });
 
     const escritura = pipeline(proceso.stdout, comprimir, destino);
 
-    proceso.on("error", reject);
+    proceso.on("error", (error) => {
+      if (!terminado) {
+        terminado = true;
+        reject(error);
+      }
+    });
 
     proceso.on("close", async (codigo) => {
+      if (terminado) return;
+
       try {
         await escritura;
 
         if (codigo !== 0) {
-          reject(
-            new Error(
-              errores.trim() || `mariadb-dump terminó con código ${codigo}.`,
-            ),
+          throw new Error(
+            errores.trim() || `mariadb-dump terminó con código ${codigo}.`,
           );
-          return;
         }
 
+        terminado = true;
         resolve();
       } catch (error) {
+        terminado = true;
         reject(error);
       }
+    });
+  });
+}
+
+function ejecutarRestauracion(nombre) {
+  return new Promise((resolve, reject) => {
+    const proceso = spawn("sudo", ["-n", SCRIPT_RESTAURACION, nombre], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let salida = "";
+    let errores = "";
+    let terminado = false;
+
+    proceso.stdout.on("data", (datos) => {
+      salida += datos.toString();
+
+      if (salida.length > 10000) {
+        salida = salida.slice(-10000);
+      }
+    });
+
+    proceso.stderr.on("data", (datos) => {
+      errores += datos.toString();
+
+      if (errores.length > 10000) {
+        errores = errores.slice(-10000);
+      }
+    });
+
+    proceso.on("error", (error) => {
+      if (!terminado) {
+        terminado = true;
+        reject(error);
+      }
+    });
+
+    proceso.on("close", (codigo) => {
+      if (terminado) return;
+
+      terminado = true;
+
+      if (codigo !== 0) {
+        reject(
+          new Error(
+            errores.trim() ||
+              salida.trim() ||
+              `La restauración terminó con código ${codigo}.`,
+          ),
+        );
+
+        return;
+      }
+
+      resolve(salida.trim());
     });
   });
 }
@@ -122,7 +196,9 @@ export async function crearRespaldo(req, res, next) {
     });
   } catch (error) {
     if (archivo) {
-      await rm(archivo, { force: true }).catch(() => {});
+      await rm(archivo, {
+        force: true,
+      }).catch(() => {});
     }
 
     next(error);
@@ -151,14 +227,16 @@ export async function listarRespaldos(req, res, next) {
           return {
             nombre: entrada.name,
             tamano: informacion.size,
-            creadoEn: informacion.mtime,
+            creadoEn: informacion.mtime.toISOString(),
           };
         }),
     );
 
     respaldos.sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn));
 
-    res.json({ respaldos });
+    res.json({
+      respaldos,
+    });
   } catch (error) {
     next(error);
   }
@@ -196,6 +274,39 @@ export async function eliminarRespaldo(req, res, next) {
 
     res.json({
       mensaje: "Respaldo eliminado correctamente.",
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({
+        mensaje: "El respaldo no existe.",
+      });
+    }
+
+    next(error);
+  }
+}
+
+export async function restaurarRespaldo(req, res, next) {
+  try {
+    const confirmacion = req.body?.confirmacion;
+
+    if (confirmacion !== "RESTAURAR") {
+      return res.status(400).json({
+        mensaje: "Debes escribir RESTAURAR para confirmar.",
+      });
+    }
+
+    const nombre = req.params.nombre;
+    const archivo = obtenerRutaSegura(nombre);
+
+    await stat(archivo);
+
+    const salida = await ejecutarRestauracion(nombre);
+
+    res.json({
+      mensaje: "La base de datos fue restaurada correctamente.",
+      nombre,
+      resultado: salida,
     });
   } catch (error) {
     if (error.code === "ENOENT") {
