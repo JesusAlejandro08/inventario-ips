@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import Login from "./components/Login";
 import PanelUsuarios from "./components/PanelUsuarios";
 import PanelAuditoria from "./components/PanelAuditoria";
+import PanelRespaldos from "./components/PanelRespaldos";
+
 import {
   CirclePlus,
   LoaderCircle,
@@ -15,6 +17,7 @@ import {
   Trash2,
   Users,
   X,
+  DatabaseBackup,
 } from "lucide-react";
 import {
   actualizarDireccion,
@@ -458,12 +461,23 @@ function App() {
               Auditoría
             </button>
           )}
+          {esAdministrador && (
+            <button
+              className={vista === "respaldos" ? "activo" : ""}
+              onClick={() => cambiarVista("respaldos")}
+            >
+              <DatabaseBackup size={18} />
+              Respaldos
+            </button>
+          )}
         </nav>
 
         {vista === "usuarios" && esAdministrador ? (
           <PanelUsuarios usuarioActual={usuarioSesion} />
         ) : vista === "auditoria" && esAdministrador ? (
           <PanelAuditoria />
+        ) : vista === "respaldos" && esAdministrador ? (
+          <PanelRespaldos />
         ) : (
           <>
             {errorGeneral && (

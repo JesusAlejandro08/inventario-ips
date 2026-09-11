@@ -196,3 +196,41 @@ export function listarAuditoria(filtros = {}) {
 
   return solicitar(`/auditoria${consulta ? `?${consulta}` : ""}`);
 }
+
+export async function crearRespaldoBaseDatos() {
+  const token = obtenerToken();
+
+  const respuesta = await fetch(`${API_URL}/respaldos`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!respuesta.ok) {
+    const contenido = await respuesta.json().catch(() => null);
+
+    if (respuesta.status === 401) {
+      cerrarSesion();
+    }
+
+    throw new Error(
+      contenido?.mensaje ||
+        `Error ${respuesta.status}: no fue posible crear el respaldo.`,
+    );
+  }
+
+  const archivo = await respuesta.blob();
+  const disposicion = respuesta.headers.get("Content-Disposition") || "";
+
+  const coincidencia = disposicion.match(/filename="?([^";]+)"?/i);
+
+  const nombre =
+    coincidencia?.[1] ||
+    `inventario_ips-${new Date().toISOString().replaceAll(":", "-")}.sql.gz`;
+
+  return {
+    archivo,
+    nombre,
+  };
+}
