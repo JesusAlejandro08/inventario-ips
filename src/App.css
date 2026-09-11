@@ -1740,3 +1740,49 @@ button:disabled {
 .respaldos-encabezado .boton-recargar {
   margin-left: auto;
 }
+
+.panel-respaldos {
+  overflow: hidden;
+}
+
+.panel-respaldos .contenedor-tabla {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.panel-respaldos table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.panel-respaldos th:nth-child(1),
+.panel-respaldos td:nth-child(1) {
+  width: 52%;
+}
+
+.panel-respaldos th:nth-child(2),
+.panel-respaldos td:nth-child(2) {
+  width: 23%;
+}
+
+.panel-respaldos th:nth-child(3),
+.panel-respaldos td:nth-child(3) {
+  width: 10%;
+}
+
+.panel-respaldos th:nth-child(4),
+.panel-respaldos td:nth-child(4) {
+  width: 15%;
+  text-align: center;
+}
+
+.nombre-respaldo {
+  display: block;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.acciones-respaldo {
+  justify-content: center;
+}
