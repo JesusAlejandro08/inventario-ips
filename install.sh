@@ -10,6 +10,8 @@ BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR"
 WEB_DIR="/var/www/$APP_NAME"
 BACKUP_DIR="/var/backups/$APP_NAME"
+BACKUP_SCRIPT_DIR="/usr/local/lib/$APP_NAME"
+SUDOERS_RESTORE_FILE="/etc/sudoers.d/$APP_NAME-restore"
 SERVICE_FILE="/etc/systemd/system/$APP_NAME.service"
 NGINX_FILE="/etc/nginx/sites-available/$APP_NAME"
 NGINX_LINK="/etc/nginx/sites-enabled/$APP_NAME"
@@ -229,8 +231,9 @@ apt-get install -y \
   nginx \
   rsync \
   openssl \
-  curl
-
+  curl \
+  sudo \
+  util-linux \
 command -v node >/dev/null 2>&1 ||
   fail "Node.js no está instalado."
 
@@ -434,6 +437,45 @@ install -d \
   "$BACKUP_DIR"
 
 log "Generando configuración privada"
+
+log "Instalando scripts de respaldo y restauración"
+
+[[ -f "$SCRIPT_DIR/scripts/backup-db.sh" ]] ||
+  fail "No se encontró scripts/backup-db.sh."
+
+[[ -f "$SCRIPT_DIR/scripts/restore-db.sh" ]] ||
+  fail "No se encontró scripts/restore-db.sh."
+
+install -d \
+  -m 755 \
+  -o root \
+  -g root \
+  "$BACKUP_SCRIPT_DIR"
+
+install \
+  -m 750 \
+  -o root \
+  -g root \
+  "$SCRIPT_DIR/scripts/backup-db.sh" \
+  "$BACKUP_SCRIPT_DIR/backup-db.sh"
+
+install \
+  -m 750 \
+  -o root \
+  -g root \
+  "$SCRIPT_DIR/scripts/restore-db.sh" \
+  "$BACKUP_SCRIPT_DIR/restore-db.sh"
+  log "Configurando autorización segura de restauración"
+
+cat >"$SUDOERS_RESTORE_FILE" <<SUDOERS
+${APP_USER} ALL=(root) NOPASSWD: ${BACKUP_SCRIPT_DIR}/restore-db.sh *
+SUDOERS
+
+chmod 440 "$SUDOERS_RESTORE_FILE"
+chown root:root "$SUDOERS_RESTORE_FILE"
+
+visudo -cf "$SUDOERS_RESTORE_FILE" ||
+  fail "La configuración sudoers de restauración no es válida."
 
 install \
   -m 600 \
