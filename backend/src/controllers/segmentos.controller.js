@@ -43,6 +43,78 @@ function validarGatewaySegmento(gateway, direccionRed, prefijo) {
 
   return null;
 }
+async function buscarSegmentoSolapado(
+  direccionRed,
+  prefijo,
+  segmentoExcluirId = null,
+) {
+  const nuevaRedInicio = ipAEntero(obtenerDireccionRed(direccionRed, prefijo));
+
+  const nuevaRedFin = ipAEntero(obtenerBroadcast(direccionRed, prefijo));
+
+  const segmentos = await consultar(`
+    SELECT
+      id,
+      nombre,
+      direccion_red,
+      prefijo,
+      vlan,
+      ubicacion
+    FROM segmentos_red
+  `);
+
+  for (const segmento of segmentos) {
+    if (
+      segmentoExcluirId !== null &&
+      String(segmento.id) === String(segmentoExcluirId)
+    ) {
+      continue;
+    }
+
+    const prefijoExistente = Number(segmento.prefijo);
+
+    const redExistenteInicio = ipAEntero(
+      obtenerDireccionRed(segmento.direccion_red, prefijoExistente),
+    );
+
+    const redExistenteFin = ipAEntero(
+      obtenerBroadcast(segmento.direccion_red, prefijoExistente),
+    );
+
+    const existeSolapamiento =
+      nuevaRedInicio <= redExistenteFin && nuevaRedFin >= redExistenteInicio;
+
+    if (existeSolapamiento) {
+      return {
+        ...segmento,
+        cidr: `${segmento.direccion_red}/${prefijoExistente}`,
+        inicio: enteroAIp(redExistenteInicio),
+        fin: enteroAIp(redExistenteFin),
+      };
+    }
+  }
+
+  return null;
+}
+
+function responderSolapamiento(res, direccionRed, prefijo, segmento) {
+  const nuevoBroadcast = obtenerBroadcast(direccionRed, prefijo);
+
+  return res.status(409).json({
+    mensaje:
+      `No se puede guardar ${direccionRed}/${prefijo} porque se superpone con el segmento ` +
+      `"${segmento.nombre}" (${segmento.cidr}).`,
+    conflicto: {
+      segmentoId: segmento.id,
+      nombre: segmento.nombre,
+      cidr: segmento.cidr,
+      vlan: segmento.vlan,
+      ubicacion: segmento.ubicacion,
+      rangoExistente: `${segmento.inicio} - ${segmento.fin}`,
+      rangoSolicitado: `${direccionRed} - ${nuevoBroadcast}`,
+    },
+  });
+}
 
 function prepararSegmento(registro) {
   const prefijo = Number(registro.prefijo);
@@ -191,7 +263,19 @@ export async function crearSegmento(req, res, next) {
         mensaje: errorGateway,
       });
     }
+    const segmentoSolapado = await buscarSegmentoSolapado(
+      redNormalizada,
+      prefijoNumerico,
+    );
 
+    if (segmentoSolapado) {
+      return responderSolapamiento(
+        res,
+        redNormalizada,
+        prefijoNumerico,
+        segmentoSolapado,
+      );
+    }
     if (
       vlanNumerica !== null &&
       (!Number.isInteger(vlanNumerica) ||
@@ -308,7 +392,19 @@ export async function actualizarSegmento(req, res, next) {
         mensaje: errorGateway,
       });
     }
+    const segmentoSolapado = await buscarSegmentoSolapado(
+      redNormalizada,
+      prefijoNumerico,
+    );
 
+    if (segmentoSolapado) {
+      return responderSolapamiento(
+        res,
+        redNormalizada,
+        prefijoNumerico,
+        segmentoSolapado,
+      );
+    }
     if (
       vlanNumerica !== null &&
       (!Number.isInteger(vlanNumerica) ||
