@@ -5,7 +5,7 @@ import PanelAuditoria from "./components/PanelAuditoria";
 import PanelRespaldos from "./components/PanelRespaldos";
 import ModalImportarCsv from "./components/ModalImportarCsv";
 import PanelDashboard from "./components/PanelDashboard";
-
+import PanelTopologia from "./components/PanelTopologia";
 import {
   CirclePlus,
   LoaderCircle,
@@ -24,6 +24,7 @@ import {
   Upload,
   CheckCircle2,
   LayoutDashboard,
+  Share2,
 } from "lucide-react";
 import {
   actualizarDireccion,
@@ -524,6 +525,13 @@ function App() {
             <span>{segmentos.length}</span>
           </button>
 
+          <button
+            className={vista === "topologia" ? "activo" : ""}
+            onClick={() => cambiarVista("topologia")}
+          >
+            <Share2 size={18} />
+            Topología
+          </button>
           {esAdministrador && (
             <button
               className={vista === "usuarios" ? "activo" : ""}
@@ -556,11 +564,9 @@ function App() {
 
         {vista === "dashboard" ? (
           <PanelDashboard direcciones={direcciones} segmentos={segmentos} />
+        ) : vista === "topologia" ? (
+          <PanelTopologia direcciones={direcciones} segmentos={segmentos} />
         ) : vista === "usuarios" && esAdministrador ? (
-          <PanelUsuarios usuarioActual={usuarioSesion} />
-        ) : vista === "auditoria" && esAdministrador ? (
-          <PanelAuditoria />
-        ) : vista === "respaldos" && esAdministrador ? (
           <PanelRespaldos />
         ) : (
           <>

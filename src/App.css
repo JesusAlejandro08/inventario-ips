@@ -2950,3 +2950,374 @@ button:disabled {
     flex-direction: column;
   }
 }
+.topologia {
+  min-width: 0;
+}
+
+.topologia-encabezado {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.topologia-encabezado h2 {
+  margin: 0 0 5px;
+  color: #10233f;
+}
+
+.topologia-encabezado p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.topologia-resumen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topologia-resumen span {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eaf2ff;
+  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.filtros-topologia {
+  margin-bottom: 14px;
+  padding: 13px;
+  display: grid;
+  grid-template-columns:
+    minmax(250px, 1fr)
+    minmax(190px, 0.45fr)
+    minmax(175px, 0.4fr)
+    auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.busqueda-topologia,
+.select-topologia {
+  position: relative;
+  display: flex;
+  align-items: center;
+  color: #64748b;
+}
+
+.busqueda-topologia svg,
+.select-topologia svg {
+  position: absolute;
+  left: 11px;
+  pointer-events: none;
+}
+
+.busqueda-topologia input,
+.select-topologia select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px 8px 38px;
+  border: 1px solid #d4deeb;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #253958;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.busqueda-topologia input:focus,
+.select-topologia select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 10%);
+}
+
+.limpiar-topologia {
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid #d4deeb;
+  border-radius: 8px;
+  background: #fff;
+  color: #526987;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.limpiar-topologia:hover {
+  color: #2563eb;
+  border-color: #93b4e8;
+  background: #f3f7ff;
+}
+
+.contenedor-topologia {
+  position: relative;
+  height: 680px;
+  overflow: hidden;
+  border: 1px solid #d7e1ed;
+  border-radius: 13px;
+  background: #f8fbff;
+}
+
+.nodo-topologia {
+  min-height: 55px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.nodo-topologia > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nodo-topologia strong,
+.nodo-topologia span,
+.nodo-topologia small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodo-topologia strong {
+  color: #172b49;
+  font-size: 0.78rem;
+}
+
+.nodo-topologia span {
+  color: #526987;
+  font-size: 0.72rem;
+}
+
+.nodo-topologia small {
+  color: #718096;
+  font-size: 0.65rem;
+}
+
+.nodo-topologia.ubicacion {
+  color: #7c3aed;
+}
+
+.nodo-topologia.segmento {
+  color: #2563eb;
+}
+
+.nodo-topologia.gateway {
+  color: #8b5cf6;
+}
+
+.nodo-topologia-icono {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #e8f1ff;
+  display: grid !important;
+  place-items: center;
+}
+
+.nodo-topologia.direccion {
+  position: relative;
+  padding-left: 4px;
+}
+
+.nodo-estado-topologia {
+  width: 5px;
+  min-width: 5px !important;
+  height: 40px;
+  border-radius: 999px;
+}
+
+.react-flow__node {
+  padding: 9px 11px;
+  border: 1px solid #aec7e8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 5px 15px rgb(31 56 88 / 8%);
+}
+
+.react-flow__node.selected {
+  box-shadow:
+    0 0 0 2px #2563eb,
+    0 8px 20px rgb(37 99 235 / 15%);
+}
+
+.react-flow__controls {
+  overflow: hidden;
+  border: 1px solid #d5dfeb;
+  border-radius: 9px;
+  box-shadow: 0 5px 15px rgb(31 56 88 / 10%);
+}
+
+.react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid #d5dfeb;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.detalle-nodo-topologia {
+  position: absolute;
+  z-index: 10;
+  top: 14px;
+  right: 14px;
+  width: min(315px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+  border: 1px solid #cad9eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 15px 35px rgb(24 48 79 / 18%);
+}
+
+.detalle-nodo-encabezado {
+  position: sticky;
+  top: 0;
+  padding: 13px 14px;
+  border-bottom: 1px solid #e3eaf3;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detalle-nodo-encabezado > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detalle-nodo-encabezado span {
+  color: #718096;
+  font-size: 0.7rem;
+}
+
+.detalle-nodo-encabezado strong {
+  overflow: hidden;
+  color: #1e3a5f;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detalle-nodo-encabezado button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #64748b;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.detalle-nodo-lista {
+  padding: 10px 14px 14px;
+}
+
+.detalle-nodo-lista > div {
+  padding: 9px 0;
+  border-bottom: 1px solid #edf1f6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detalle-nodo-lista > div:last-child {
+  border-bottom: 0;
+}
+
+.detalle-nodo-lista span {
+  color: #718096;
+  font-size: 0.69rem;
+}
+
+.detalle-nodo-lista strong {
+  color: #253958;
+  font-size: 0.79rem;
+  overflow-wrap: anywhere;
+}
+
+.topologia-vacia {
+  height: 100%;
+  color: #70839d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.topologia-vacia h3 {
+  margin: 10px 0 4px;
+  color: #253958;
+}
+
+.topologia-vacia p {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.leyenda-topologia {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.leyenda-topologia span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.leyenda-topologia i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+@media (max-width: 950px) {
+  .filtros-topologia {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .topologia-encabezado {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topologia-resumen {
+    flex-wrap: wrap;
+  }
+
+  .filtros-topologia {
+    grid-template-columns: 1fr;
+  }
+
+  .contenedor-topologia {
+    height: 600px;
+  }
+}
