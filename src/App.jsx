@@ -4,6 +4,7 @@ import PanelUsuarios from "./components/PanelUsuarios";
 import PanelAuditoria from "./components/PanelAuditoria";
 import PanelRespaldos from "./components/PanelRespaldos";
 import ModalImportarCsv from "./components/ModalImportarCsv";
+import PanelDashboard from "./components/PanelDashboard";
 
 import {
   CirclePlus,
@@ -22,6 +23,7 @@ import {
   Download,
   Upload,
   CheckCircle2,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   actualizarDireccion,
@@ -64,7 +66,7 @@ const segmentoInicial = {
 function App() {
   const [usuarioSesion, setUsuarioSesion] = useState(null);
   const [verificandoSesion, setVerificandoSesion] = useState(true);
-  const [vista, setVista] = useState("direcciones");
+  const [vista, setVista] = useState("dashboard");
   const [direcciones, setDirecciones] = useState([]);
   const [segmentos, setSegmentos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
@@ -477,6 +479,13 @@ function App() {
       <section className="contenido">
         <nav className="navegacion-inventario">
           <button
+            className={vista === "dashboard" ? "activo" : ""}
+            onClick={() => cambiarVista("dashboard")}
+          >
+            <LayoutDashboard size={18} />
+            Dashboard
+          </button>
+          <button
             className={vista === "direcciones" ? "activo" : ""}
             onClick={() => cambiarVista("direcciones")}
           >
@@ -524,7 +533,9 @@ function App() {
           )}
         </nav>
 
-        {vista === "usuarios" && esAdministrador ? (
+        {vista === "dashboard" ? (
+          <PanelDashboard direcciones={direcciones} segmentos={segmentos} />
+        ) : vista === "usuarios" && esAdministrador ? (
           <PanelUsuarios usuarioActual={usuarioSesion} />
         ) : vista === "auditoria" && esAdministrador ? (
           <PanelAuditoria />
