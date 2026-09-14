@@ -47,10 +47,7 @@ function analizarCsv(contenido) {
       continue;
     }
 
-    if (
-      (caracter === "\n" || caracter === "\r") &&
-      !entreComillas
-    ) {
+    if ((caracter === "\n" || caracter === "\r") && !entreComillas) {
       if (caracter === "\r" && siguiente === "\n") {
         indice += 1;
       }
@@ -94,20 +91,13 @@ function convertirRegistros(contenido, segmentos) {
   const filas = analizarCsv(contenido);
 
   if (filas.length < 2) {
-    throw new Error(
-      "El CSV debe contener encabezados y al menos un registro.",
-    );
+    throw new Error("El CSV debe contener encabezados y al menos un registro.");
   }
 
   const encabezados = filas[0].map(normalizarEncabezado);
 
-  if (
-    !encabezados.includes("direccion ip") &&
-    !encabezados.includes("ip")
-  ) {
-    throw new Error(
-      'El CSV debe contener la columna "Dirección IP" o "IP".',
-    );
+  if (!encabezados.includes("direccion ip") && !encabezados.includes("ip")) {
+    throw new Error('El CSV debe contener la columna "Dirección IP" o "IP".');
   }
 
   return filas.slice(1).map((valores) => {
@@ -128,52 +118,29 @@ function convertirRegistros(contenido, segmentos) {
       "nombre segmento",
     ]);
 
-    const cidr = encontrarValor(registro, [
-      "cidr",
-      "red",
-    ]);
+    const cidr = encontrarValor(registro, ["cidr", "red"]);
 
     let segmentoId = segmentoIdCsv;
 
     if (!segmentoId) {
       const segmentoEncontrado = segmentos.find(
         (segmento) =>
-          String(segmento.cidr).toLowerCase() ===
-            cidr.toLowerCase() ||
+          String(segmento.cidr).toLowerCase() === cidr.toLowerCase() ||
           String(segmento.nombre).toLowerCase() ===
             nombreSegmento.toLowerCase(),
       );
 
-      segmentoId = segmentoEncontrado
-        ? String(segmentoEncontrado.id)
-        : "";
+      segmentoId = segmentoEncontrado ? String(segmentoEncontrado.id) : "";
     }
 
     return {
       segmentoId,
-      ip: encontrarValor(registro, [
-        "Dirección IP",
-        "IP",
-        "direccion_ip",
-      ]),
-      hostname: encontrarValor(registro, [
-        "Hostname",
-        "Nombre de host",
-      ]),
-      dispositivo: encontrarValor(registro, [
-        "Dispositivo",
-        "Equipo",
-      ]),
-      ubicacion: encontrarValor(registro, [
-        "Ubicación",
-        "Ubicacion",
-      ]),
-      responsable: encontrarValor(registro, [
-        "Responsable",
-      ]),
-      estado:
-        encontrarValor(registro, ["Estado"]) ||
-        "Disponible",
+      ip: encontrarValor(registro, ["Dirección IP", "IP", "direccion_ip"]),
+      hostname: encontrarValor(registro, ["Hostname", "Nombre de host"]),
+      dispositivo: encontrarValor(registro, ["Dispositivo", "Equipo"]),
+      ubicacion: encontrarValor(registro, ["Ubicación", "Ubicacion"]),
+      responsable: encontrarValor(registro, ["Responsable"]),
+      estado: encontrarValor(registro, ["Estado"]) || "Disponible",
       observaciones: encontrarValor(registro, [
         "Observaciones",
         "Descripción",
@@ -183,15 +150,10 @@ function convertirRegistros(contenido, segmentos) {
   });
 }
 
-function ModalImportarCsv({
-  segmentos,
-  cerrar,
-  alImportar,
-}) {
+function ModalImportarCsv({ segmentos, cerrar, alImportar }) {
   const selectorArchivo = useRef(null);
 
-  const [archivoNombre, setArchivoNombre] =
-    useState("");
+  const [archivoNombre, setArchivoNombre] = useState("");
   const [registros, setRegistros] = useState([]);
   const [resultado, setResultado] = useState(null);
   const [validando, setValidando] = useState(false);
@@ -229,13 +191,10 @@ function ModalImportarCsv({
 
     try {
       const contenido = await archivo.text();
-      const registrosConvertidos =
-        convertirRegistros(contenido, segmentos);
+      const registrosConvertidos = convertirRegistros(contenido, segmentos);
 
-      if (registrosConvertidos.length > 500) {
-        throw new Error(
-          "El archivo contiene más de 500 registros.",
-        );
+      if (registrosConvertidos.length > 2000) {
+        throw new Error("El archivo contiene más de 2000 registros.");
       }
 
       const validacion = await importarDireccionesCsv(
@@ -267,10 +226,7 @@ function ModalImportarCsv({
     setError("");
 
     try {
-      const respuesta = await importarDireccionesCsv(
-        registros,
-        true,
-      );
+      const respuesta = await importarDireccionesCsv(registros, true);
 
       await alImportar(respuesta.mensaje);
     } catch (errorSolicitud) {
@@ -288,17 +244,12 @@ function ModalImportarCsv({
     <div className="fondo-modal" onMouseDown={cerrar}>
       <section
         className="modal modal-importar-csv"
-        onMouseDown={(evento) =>
-          evento.stopPropagation()
-        }
+        onMouseDown={(evento) => evento.stopPropagation()}
       >
         <header className="modal-encabezado">
           <div>
             <h2>Importar direcciones desde CSV</h2>
-            <p>
-              Valida los registros antes de guardarlos
-              en MariaDB.
-            </p>
+            <p>Valida los registros antes de guardarlos en MariaDB.</p>
           </div>
 
           <button
@@ -324,39 +275,28 @@ function ModalImportarCsv({
           <button
             type="button"
             className="selector-csv"
-            onClick={() =>
-              selectorArchivo.current?.click()
-            }
+            onClick={() => selectorArchivo.current?.click()}
             disabled={validando || importando}
           >
             {validando ? (
-              <LoaderCircle
-                className="girando"
-                size={30}
-              />
+              <LoaderCircle className="girando" size={30} />
             ) : (
               <FileSpreadsheet size={30} />
             )}
 
             <span>
               <strong>
-                {validando
-                  ? "Validando archivo..."
-                  : "Seleccionar archivo CSV"}
+                {validando ? "Validando archivo..." : "Seleccionar archivo CSV"}
               </strong>
 
-              <small>
-                {archivoNombre ||
-                  "Máximo 500 registros y 2 MB"}
-              </small>
+              <small>{archivoNombre || "Máximo 500 registros y 2 MB"}</small>
             </span>
           </button>
 
           <div className="ayuda-importacion">
             <strong>Columnas aceptadas</strong>
             <p>
-              Dirección IP, Segmento o CIDR,
-              Hostname, Dispositivo, Ubicación,
+              Dirección IP, Segmento o CIDR, Hostname, Dispositivo, Ubicación,
               Responsable, Estado y Observaciones.
             </p>
           </div>
@@ -401,54 +341,44 @@ function ModalImportarCsv({
                   </thead>
 
                   <tbody>
-                    {resultado.registros
-                      .slice(0, 100)
-                      .map((registro) => (
-                        <tr key={registro.fila}>
-                          <td>{registro.fila}</td>
-                          <td>
-                            <strong className="direccion-ip">
-                              {registro.ip || "Sin IP"}
-                            </strong>
-                          </td>
-                          <td>
-                            {registro.segmento ||
-                              registro.segmentoId ||
-                              "No encontrado"}
-                          </td>
-                          <td>
-                            {registro.dispositivo ||
-                              "Sin dispositivo"}
-                          </td>
-                          <td>{registro.estado}</td>
-                          <td>
-                            {registro.valido ? (
-                              <span className="validacion-correcta">
-                                <CheckCircle2 size={16} />
-                                Correcto
-                              </span>
-                            ) : (
-                              <div className="errores-fila">
-                                {registro.errores.map(
-                                  (mensaje) => (
-                                    <span key={mensaje}>
-                                      {mensaje}
-                                    </span>
-                                  ),
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                    {resultado.registros.slice(0, 100).map((registro) => (
+                      <tr key={registro.fila}>
+                        <td>{registro.fila}</td>
+                        <td>
+                          <strong className="direccion-ip">
+                            {registro.ip || "Sin IP"}
+                          </strong>
+                        </td>
+                        <td>
+                          {registro.segmento ||
+                            registro.segmentoId ||
+                            "No encontrado"}
+                        </td>
+                        <td>{registro.dispositivo || "Sin dispositivo"}</td>
+                        <td>{registro.estado}</td>
+                        <td>
+                          {registro.valido ? (
+                            <span className="validacion-correcta">
+                              <CheckCircle2 size={16} />
+                              Correcto
+                            </span>
+                          ) : (
+                            <div className="errores-fila">
+                              {registro.errores.map((mensaje) => (
+                                <span key={mensaje}>{mensaje}</span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
 
               {resultado.registros.length > 100 && (
                 <p className="aviso-importacion">
-                  Se muestran los primeros 100
-                  registros de {resultado.total}.
+                  Se muestran los primeros 100 registros de {resultado.total}.
                 </p>
               )}
             </>
@@ -477,17 +407,12 @@ function ModalImportarCsv({
             }
           >
             {importando ? (
-              <LoaderCircle
-                className="girando"
-                size={18}
-              />
+              <LoaderCircle className="girando" size={18} />
             ) : (
               <Upload size={18} />
             )}
 
-            {importando
-              ? "Importando..."
-              : "Confirmar importación"}
+            {importando ? "Importando..." : "Confirmar importación"}
           </button>
         </footer>
       </section>

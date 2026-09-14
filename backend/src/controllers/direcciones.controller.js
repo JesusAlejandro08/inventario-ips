@@ -575,9 +575,9 @@ export async function importarDirecciones(req, res, next) {
       });
     }
 
-    if (registros.length > 500) {
+    if (registros.length > 2000) {
       return res.status(400).json({
-        mensaje: "Solamente se permiten 500 direcciones por importación.",
+        mensaje: "Solamente se permiten 2,000 direcciones por importación.",
       });
     }
 
