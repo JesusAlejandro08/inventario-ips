@@ -9,6 +9,7 @@ import {
   Database,
   Filter,
   MapPin,
+  Monitor,
   Network,
   Search,
   Server,
@@ -74,7 +75,30 @@ function PanelDashboard({ direcciones, segmentos }) {
     const idsSegmentos = new Set(
       segmentosSeleccionados.map((segmento) => String(segmento.id)),
     );
+    const dispositivosMap = new Map();
 
+    for (const direccion of direccionesSeleccionadas) {
+      const dispositivo =
+        String(direccion.dispositivo ?? "")
+          .trim()
+          .toUpperCase() || "SIN DISPOSITIVO";
+
+      dispositivosMap.set(
+        dispositivo,
+        (dispositivosMap.get(dispositivo) || 0) + 1,
+      );
+    }
+
+    const dispositivos = [...dispositivosMap.entries()]
+      .map(([nombre, cantidad]) => ({
+        nombre,
+        cantidad,
+        porcentaje: porcentajeExacto(cantidad, direccionesSeleccionadas.length),
+      }))
+      .sort(
+        (a, b) =>
+          b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, "es"),
+      );
     const direccionesSeleccionadas =
       segmentoSeleccionado === "Todos"
         ? direcciones
@@ -220,6 +244,7 @@ function PanelDashboard({ direcciones, segmentos }) {
       asignadasTotal,
       sinRegistrar,
       ubicaciones,
+      dispositivos,
       segmentosOrdenados,
       segmentosAlerta,
       sinHostname,
@@ -635,7 +660,77 @@ function PanelDashboard({ direcciones, segmentos }) {
           )}
         </article>
       </div>
+      <article className="panel dispositivos-dashboard">
+        <div className="panel-dashboard-titulo">
+          <div>
+            <h3>Dispositivos registrados</h3>
 
+            <p>Recuento según el valor registrado en el campo dispositivo</p>
+          </div>
+
+          <Monitor size={21} />
+        </div>
+
+        <div className="dispositivos-dashboard-resumen">
+          <span>
+            <strong>{estadisticas.direccionesSeleccionadas.length}</strong>
+            registros analizados
+          </span>
+
+          <span>
+            <strong>{estadisticas.dispositivos.length}</strong>
+            tipos diferentes
+          </span>
+        </div>
+
+        {estadisticas.dispositivos.length === 0 ? (
+          <div className="dashboard-sin-datos">
+            No existen dispositivos para mostrar.
+          </div>
+        ) : (
+          <div className="lista-dispositivos-dashboard">
+            {estadisticas.dispositivos.map((dispositivo, indice) => (
+              <div
+                className="dispositivo-dashboard-item"
+                key={dispositivo.nombre}
+              >
+                <div className="dispositivo-dashboard-datos">
+                  <div>
+                    <span className="dispositivo-dashboard-posicion">
+                      {indice + 1}
+                    </span>
+
+                    <Monitor size={16} />
+
+                    <strong>{dispositivo.nombre}</strong>
+                  </div>
+
+                  <div>
+                    <strong>
+                      {dispositivo.cantidad.toLocaleString("es-MX")}
+                    </strong>
+
+                    <span>
+                      {mostrarPorcentaje(
+                        dispositivo.cantidad,
+                        estadisticas.direccionesSeleccionadas.length,
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="barra-dispositivo-dashboard">
+                  <span
+                    style={{
+                      width: `${limitarPorcentaje(dispositivo.porcentaje)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </article>
       <div className="dashboard-cuadricula dashboard-cuadricula-control">
         <article className="panel calidad-dashboard">
           <div className="panel-dashboard-titulo">
