@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   DatabaseBackup,
   Download,
@@ -9,6 +10,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+
 import {
   crearRespaldoBaseDatos,
   descargarRespaldo,
@@ -18,14 +20,11 @@ import {
   restaurarRespaldo,
 } from "../services/api";
 
-const [archivoImportacion, setArchivoImportacion] = useState(null);
-
-const [importando, setImportando] = useState(false);
-
 function formatoTamano(bytes) {
   if (!bytes) return "0 KB";
 
   const unidades = ["B", "KB", "MB", "GB"];
+
   const indice = Math.min(
     Math.floor(Math.log(bytes) / Math.log(1024)),
     unidades.length - 1,
@@ -38,12 +37,14 @@ function formatoTamano(bytes) {
 
 function guardarArchivo({ archivo, nombre }) {
   const url = URL.createObjectURL(archivo);
+
   const enlace = document.createElement("a");
 
   enlace.href = url;
   enlace.download = nombre;
 
   document.body.appendChild(enlace);
+
   enlace.click();
   enlace.remove();
 
@@ -54,12 +55,27 @@ function guardarArchivo({ archivo, nombre }) {
 
 function PanelRespaldos() {
   const [respaldos, setRespaldos] = useState([]);
+
   const [cargando, setCargando] = useState(true);
+
   const [generando, setGenerando] = useState(false);
+
   const [descargando, setDescargando] = useState("");
+
   const [restaurando, setRestaurando] = useState("");
+
   const [eliminando, setEliminando] = useState("");
+
+  /*
+   * Estos estados deben permanecer dentro
+   * del componente PanelRespaldos.
+   */
+  const [archivoImportacion, setArchivoImportacion] = useState(null);
+
+  const [importando, setImportando] = useState(false);
+
   const [mensaje, setMensaje] = useState("");
+
   const [error, setError] = useState("");
 
   async function cargarRespaldos() {
@@ -68,6 +84,7 @@ function PanelRespaldos() {
 
     try {
       const resultado = await listarRespaldos();
+
       setRespaldos(resultado.respaldos || []);
     } catch (errorSolicitud) {
       setError(errorSolicitud.message);
@@ -121,15 +138,19 @@ function PanelRespaldos() {
       `¿Restaurar ${nombre}? Los datos actuales serán reemplazados.`,
     );
 
-    if (!primeraConfirmacion) return;
+    if (!primeraConfirmacion) {
+      return;
+    }
 
     const confirmacion = window.prompt("Escribe RESTAURAR para confirmar:");
 
     if (confirmacion !== "RESTAURAR") {
       setMensaje("");
+
       setError(
         "La restauración fue cancelada porque la confirmación no coincide.",
       );
+
       return;
     }
 
@@ -159,7 +180,9 @@ function PanelRespaldos() {
       `¿Eliminar permanentemente el respaldo ${nombre}?`,
     );
 
-    if (!confirmado) return;
+    if (!confirmado) {
+      return;
+    }
 
     setEliminando(nombre);
     setMensaje("");
@@ -181,7 +204,9 @@ function PanelRespaldos() {
   async function importar() {
     if (!archivoImportacion) {
       setMensaje("");
+
       setError("Selecciona un respaldo .sql.gz.");
+
       return;
     }
 
@@ -189,7 +214,9 @@ function PanelRespaldos() {
 
     if (!nombre.endsWith(".sql.gz")) {
       setMensaje("");
+
       setError("Solamente se permiten archivos .sql.gz.");
+
       return;
     }
 
@@ -204,10 +231,6 @@ function PanelRespaldos() {
 
       setArchivoImportacion(null);
 
-      /*
-       * Permite volver a seleccionar el mismo
-       * archivo posteriormente.
-       */
       const entrada = document.getElementById("archivo-respaldo");
 
       if (entrada) {
