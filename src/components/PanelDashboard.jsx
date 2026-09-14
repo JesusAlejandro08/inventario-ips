@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const COLORES_ESTADO = {
-  "En uso": "#2563eb",
+  "En uso": "#eb2525",
   Disponible: "#16a34a",
   Reservada: "#f59e0b",
   Inactiva: "#64748b",
@@ -75,6 +75,22 @@ function PanelDashboard({ direcciones, segmentos }) {
     const idsSegmentos = new Set(
       segmentosSeleccionados.map((segmento) => String(segmento.id)),
     );
+
+    /*
+     * Primero se obtienen las direcciones
+     * correspondientes al segmento seleccionado.
+     */
+    const direccionesSeleccionadas =
+      segmentoSeleccionado === "Todos"
+        ? direcciones
+        : direcciones.filter((direccion) =>
+            idsSegmentos.has(String(direccion.segmentoId)),
+          );
+
+    /*
+     * Después se agrupan los dispositivos.
+     * DELL, Dell y dell se consideran iguales.
+     */
     const dispositivosMap = new Map();
 
     for (const direccion of direccionesSeleccionadas) {
@@ -99,12 +115,6 @@ function PanelDashboard({ direcciones, segmentos }) {
         (a, b) =>
           b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, "es"),
       );
-    const direccionesSeleccionadas =
-      segmentoSeleccionado === "Todos"
-        ? direcciones
-        : direcciones.filter((direccion) =>
-            idsSegmentos.has(String(direccion.segmentoId)),
-          );
 
     const estadosRegistrados = {
       "En uso": 0,
