@@ -375,7 +375,7 @@ CREATE TABLE IF NOT EXISTS direcciones_ip (
   actualizado_en TIMESTAMP
     DEFAULT CURRENT_TIMESTAMP
     ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_direccion_ip (direccion_ip),
+UNIQUE KEY uk_segmento_direccion_ip (segmento_id,direccion_ip),
   KEY idx_segmento_id (segmento_id),
   KEY idx_estado (estado),
   CONSTRAINT fk_ip_segmento

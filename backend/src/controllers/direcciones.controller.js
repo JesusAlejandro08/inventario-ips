@@ -256,7 +256,8 @@ export async function crearDireccion(req, res, next) {
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
-        mensaje: "Esta dirección IP ya está registrada.",
+        mensaje:
+          "Esta dirección IP ya está registrada en el segmento seleccionado.",
       });
     }
 
@@ -364,7 +365,8 @@ export async function actualizarDireccion(req, res, next) {
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
-        mensaje: "Esta dirección IP ya está registrada.",
+        mensaje:
+          "Esta dirección IP ya está registrada en el segmento seleccionado.",
       });
     }
 
@@ -549,6 +551,9 @@ function enteroPositivo(valor) {
 
   return Number.isInteger(numero) && numero > 0 ? numero : null;
 }
+function crearClaveDireccion(segmentoId, ip) {
+  return `${segmentoId}:${ip}`;
+}
 
 export async function importarDirecciones(req, res, next) {
   let conexion;
@@ -561,6 +566,7 @@ export async function importarDirecciones(req, res, next) {
     }
 
     const registros = req.body?.registros;
+
     const confirmar = req.body?.confirmar === true;
 
     if (!Array.isArray(registros) || registros.length === 0) {
@@ -576,35 +582,60 @@ export async function importarDirecciones(req, res, next) {
     }
 
     const segmentos = await consultar(`
-      SELECT
-        id,
-        nombre,
-        direccion_red,
-        prefijo,
-        gateway
-      FROM segmentos_red
-      ORDER BY id
-    `);
+        SELECT
+          id,
+          nombre,
+          direccion_red,
+          prefijo,
+          gateway,
+          ubicacion
+        FROM segmentos_red
+        ORDER BY id
+      `);
 
     const segmentosPorId = new Map(
       segmentos.map((segmento) => [Number(segmento.id), segmento]),
     );
 
-    const ipsArchivo = new Map();
+    /*
+     * Cuenta duplicados usando segmento + IP.
+     * La misma IP puede aparecer en segmentos
+     * diferentes.
+     */
+    const direccionesArchivo = new Map();
 
     for (const registro of registros) {
+      const segmentoId = enteroPositivo(registro.segmentoId);
+
       const ip = limpiarTexto(registro.ip);
 
-      ipsArchivo.set(ip, (ipsArchivo.get(ip) || 0) + 1);
+      if (!segmentoId || !ip) {
+        continue;
+      }
+
+      const clave = crearClaveDireccion(segmentoId, ip);
+
+      direccionesArchivo.set(clave, (direccionesArchivo.get(clave) || 0) + 1);
     }
 
-    const ipsExistentes = await consultar(`
-      SELECT direccion_ip
-      FROM direcciones_ip
-    `);
+    /*
+     * Las direcciones existentes también se
+     * identifican mediante segmento + IP.
+     */
+    const direccionesExistentes = await consultar(`
+        SELECT
+          segmento_id,
+          direccion_ip
+        FROM direcciones_ip
+      `);
 
-    const conjuntoIpsExistentes = new Set(
-      ipsExistentes.map((registro) => String(registro.direccion_ip)),
+    const conjuntoDireccionesExistentes = new Set(
+      direccionesExistentes.map((registro) =>
+        crearClaveDireccion(
+          Number(registro.segmento_id),
+          String(registro.direccion_ip),
+        ),
+      ),
     );
 
     const resultado = registros.map((registro, indice) => {
@@ -614,11 +645,17 @@ export async function importarDirecciones(req, res, next) {
       const segmentoId = enteroPositivo(registro.segmentoId);
 
       const ip = limpiarTexto(registro.ip);
+
       const hostname = limpiarTexto(registro.hostname) || null;
+
       const dispositivo = limpiarTexto(registro.dispositivo);
+
       const ubicacion = limpiarTexto(registro.ubicacion);
+
       const responsable = limpiarTexto(registro.responsable) || null;
+
       const estado = limpiarTexto(registro.estado) || "Disponible";
+
       const observaciones = limpiarTexto(registro.observaciones) || null;
 
       if (!segmentoId) {
@@ -647,12 +684,19 @@ export async function importarDirecciones(req, res, next) {
         errores.push(`El estado "${estado}" no es válido.`);
       }
 
-      if (ip && ipsArchivo.get(ip) > 1) {
-        errores.push("La dirección IP está repetida dentro del archivo.");
+      const clave =
+        segmentoId && ip ? crearClaveDireccion(segmentoId, ip) : null;
+
+      if (clave && direccionesArchivo.get(clave) > 1) {
+        errores.push(
+          "La dirección IP está repetida dentro del mismo segmento en el archivo.",
+        );
       }
 
-      if (ip && conjuntoIpsExistentes.has(ip)) {
-        errores.push("La dirección IP ya está registrada.");
+      if (clave && conjuntoDireccionesExistentes.has(clave)) {
+        errores.push(
+          "La dirección IP ya está registrada en el segmento seleccionado.",
+        );
       }
 
       if (segmento && validarIPv4(ip)) {
@@ -667,6 +711,7 @@ export async function importarDirecciones(req, res, next) {
         fila,
         segmentoId,
         segmento: segmento?.nombre || null,
+        segmentoUbicacion: segmento?.ubicacion || null,
         ip,
         hostname,
         dispositivo,
@@ -706,6 +751,7 @@ export async function importarDirecciones(req, res, next) {
     }
 
     conexion = await pool.getConnection();
+
     await conexion.beginTransaction();
 
     for (const registro of validos) {
@@ -749,7 +795,8 @@ export async function importarDirecciones(req, res, next) {
 
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
-        mensaje: "Una dirección IP ya fue registrada durante la importación.",
+        mensaje:
+          "Esta dirección IP ya está registrada en el segmento seleccionado.",
       });
     }
 
