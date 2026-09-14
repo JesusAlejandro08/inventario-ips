@@ -5,7 +5,7 @@ import {
   validarIPv4,
 } from "../utils/red.js";
 
-const estadosPermitidos = ["Disponible", "En uso", "Reservada", "Inactiva"];
+const estadosPermitidos = ["En uso", "Reservada", "Inactiva"];
 
 function prepararDireccion(registro) {
   return {
@@ -654,7 +654,7 @@ export async function importarDirecciones(req, res, next) {
 
       const responsable = limpiarTexto(registro.responsable) || null;
 
-      const estado = limpiarTexto(registro.estado) || "Disponible";
+      const estado = limpiarTexto(registro.estado) || "En uso";
 
       const observaciones = limpiarTexto(registro.observaciones) || null;
 

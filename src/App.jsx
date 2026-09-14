@@ -50,7 +50,7 @@ const direccionInicial = {
   dispositivo: "",
   ubicacion: "",
   responsable: "",
-  estado: "Disponible",
+  estado: "En uso",
   observaciones: "",
 };
 
@@ -213,7 +213,7 @@ function App() {
       dispositivo: registro.dispositivo ?? "",
       ubicacion: registro.ubicacion ?? "",
       responsable: registro.responsable ?? "",
-      estado: registro.estado ?? "Disponible",
+      estado: registro.estado ?? "En uso",
       observaciones: registro.observaciones ?? "",
     });
     setErrorDireccion("");
@@ -649,7 +649,6 @@ function App() {
                     >
                       <option>Todos</option>
                       <option>En uso</option>
-                      <option>Disponible</option>
                       <option>Reservada</option>
                       <option>Inactiva</option>
                     </select>
@@ -1095,7 +1094,6 @@ function ModalDireccion({
           <label>
             Estado
             <select name="estado" value={formulario.estado} onChange={cambiar}>
-              <option>Disponible</option>
               <option>En uso</option>
               <option>Reservada</option>
               <option>Inactiva</option>

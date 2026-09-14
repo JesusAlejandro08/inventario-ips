@@ -140,7 +140,7 @@ function convertirRegistros(contenido, segmentos) {
       dispositivo: encontrarValor(registro, ["Dispositivo", "Equipo"]),
       ubicacion: encontrarValor(registro, ["Ubicación", "Ubicacion"]),
       responsable: encontrarValor(registro, ["Responsable"]),
-      estado: encontrarValor(registro, ["Estado"]) || "Disponible",
+      estado: encontrarValor(registro, ["Estado"]) || "En uso",
       observaciones: encontrarValor(registro, [
         "Observaciones",
         "Descripción",

@@ -369,7 +369,7 @@ CREATE TABLE IF NOT EXISTS direcciones_ip (
     'En uso',
     'Reservada',
     'Inactiva'
-  ) NOT NULL DEFAULT 'Disponible',
+  ) NOT NULL DEFAULT 'En uso',
   observaciones TEXT NULL,
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   actualizado_en TIMESTAMP
