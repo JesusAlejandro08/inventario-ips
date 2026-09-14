@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const COLORES_ESTADO = {
-  "En uso": "#eb2525",
+  "En uso": "#2563eb",
   Disponible: "#16a34a",
   Reservada: "#f59e0b",
   Inactiva: "#64748b",
