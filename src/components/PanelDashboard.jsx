@@ -15,7 +15,9 @@ import {
   Server,
   ShieldAlert,
   Tags,
+  Trophy,
   UserRoundX,
+  UsersRound,
   X,
 } from "lucide-react";
 
@@ -29,7 +31,6 @@ const COLORES_ESTADO = {
 
 function porcentajeExacto(valor, total) {
   if (!total) return 0;
-
   return (valor / total) * 100;
 }
 
@@ -76,10 +77,6 @@ function PanelDashboard({ direcciones, segmentos }) {
       segmentosSeleccionados.map((segmento) => String(segmento.id)),
     );
 
-    /*
-     * Primero se obtienen las direcciones
-     * correspondientes al segmento seleccionado.
-     */
     const direccionesSeleccionadas =
       segmentoSeleccionado === "Todos"
         ? direcciones
@@ -88,16 +85,13 @@ function PanelDashboard({ direcciones, segmentos }) {
           );
 
     /*
-     * Después se agrupan los dispositivos.
-     * DELL, Dell y dell se consideran iguales.
+     * Dispositivos
      */
     const dispositivosMap = new Map();
 
     for (const direccion of direccionesSeleccionadas) {
       const dispositivo =
-        String(direccion.dispositivo ?? "")
-          .trim()
-          .toUpperCase() || "SIN DISPOSITIVO";
+        texto(direccion.dispositivo).toUpperCase() || "SIN DISPOSITIVO";
 
       dispositivosMap.set(
         dispositivo,
@@ -116,6 +110,35 @@ function PanelDashboard({ direcciones, segmentos }) {
           b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, "es"),
       );
 
+    /*
+     * Responsables
+     */
+    const responsablesMap = new Map();
+
+    for (const direccion of direccionesSeleccionadas) {
+      const responsable =
+        texto(direccion.responsable).toUpperCase() || "SIN RESPONSABLE";
+
+      responsablesMap.set(
+        responsable,
+        (responsablesMap.get(responsable) || 0) + 1,
+      );
+    }
+
+    const responsables = [...responsablesMap.entries()]
+      .map(([nombre, cantidad]) => ({
+        nombre,
+        cantidad,
+        porcentaje: porcentajeExacto(cantidad, direccionesSeleccionadas.length),
+      }))
+      .sort(
+        (a, b) =>
+          b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, "es"),
+      );
+
+    /*
+     * Estados
+     */
     const estadosRegistrados = {
       "En uso": 0,
       Disponible: 0,
@@ -147,7 +170,7 @@ function PanelDashboard({ direcciones, segmentos }) {
     };
 
     /*
-     * Calidad de datos
+     * Calidad de información
      */
     const sinHostname = direcciones.filter(
       (direccion) => !tieneValor(direccion.hostname),
@@ -179,7 +202,7 @@ function PanelDashboard({ direcciones, segmentos }) {
     );
 
     /*
-     * Alertas de configuración
+     * Alertas
      */
     const segmentosSinGateway = segmentos.filter(
       (segmento) => !tieneValor(segmento.gateway),
@@ -194,7 +217,7 @@ function PanelDashboard({ direcciones, segmentos }) {
     );
 
     /*
-     * Capacidad por ubicación
+     * Ubicaciones
      */
     const ubicacionesMap = new Map();
 
@@ -208,9 +231,7 @@ function PanelDashboard({ direcciones, segmentos }) {
       };
 
       datos.segmentos += 1;
-
       datos.capacidad += Number(segmento.capacidad || 0);
-
       datos.asignadas += Number(segmento.asignadas || 0);
 
       ubicacionesMap.set(ubicacion, datos);
@@ -229,7 +250,7 @@ function PanelDashboard({ direcciones, segmentos }) {
       .slice(0, 8);
 
     /*
-     * Utilización por segmento
+     * Segmentos
      */
     const segmentosOrdenados = [...segmentos]
       .map((segmento) => ({
@@ -241,6 +262,10 @@ function PanelDashboard({ direcciones, segmentos }) {
       }))
       .sort((a, b) => b.porcentajeUso - a.porcentajeUso);
 
+    const topSegmentos = segmentosOrdenados
+      .filter((segmento) => Number(segmento.capacidad || 0) > 0)
+      .slice(0, 5);
+
     const segmentosAlerta = segmentosOrdenados.filter(
       (segmento) => segmento.porcentajeUso >= 80,
     );
@@ -248,14 +273,16 @@ function PanelDashboard({ direcciones, segmentos }) {
     return {
       segmentosSeleccionados,
       direccionesSeleccionadas,
+      dispositivos,
+      responsables,
       estadosRegistrados,
       estadosCapacidad,
       capacidadTotal,
       asignadasTotal,
       sinRegistrar,
       ubicaciones,
-      dispositivos,
       segmentosOrdenados,
+      topSegmentos,
       segmentosAlerta,
       sinHostname,
       sinResponsable,
@@ -337,12 +364,23 @@ function PanelDashboard({ direcciones, segmentos }) {
     estadisticas.segmentosSinVlan.length +
     estadisticas.direccionesDisponiblesRegistradas.length;
 
+  const totalEnUso = direcciones.filter(
+    (direccion) => direccion.estado === "En uso",
+  ).length;
+
+  const totalReservadas = direcciones.filter(
+    (direccion) => direccion.estado === "Reservada",
+  ).length;
+
+  const totalInactivas = direcciones.filter(
+    (direccion) => direccion.estado === "Inactiva",
+  ).length;
+
   return (
     <section className="dashboard">
       <div className="dashboard-encabezado">
         <div>
           <h2>Resumen del inventario</h2>
-
           <p>Estado general del direccionamiento de la red.</p>
         </div>
 
@@ -362,10 +400,7 @@ function PanelDashboard({ direcciones, segmentos }) {
 
         <Indicador
           titulo="Direcciones en uso"
-          valor={
-            direcciones.filter((direccion) => direccion.estado === "En uso")
-              .length
-          }
+          valor={totalEnUso}
           clase="azul"
           icono={<CircleCheck size={23} />}
         />
@@ -399,20 +434,14 @@ function PanelDashboard({ direcciones, segmentos }) {
 
         <Indicador
           titulo="Direcciones reservadas"
-          valor={
-            direcciones.filter((direccion) => direccion.estado === "Reservada")
-              .length
-          }
+          valor={totalReservadas}
           clase="naranja"
           icono={<Tags size={23} />}
         />
 
         <Indicador
           titulo="Direcciones inactivas"
-          valor={
-            direcciones.filter((direccion) => direccion.estado === "Inactiva")
-              .length
-          }
+          valor={totalInactivas}
           clase="gris"
           icono={<ShieldAlert size={23} />}
         />
@@ -429,7 +458,6 @@ function PanelDashboard({ direcciones, segmentos }) {
         <div className="panel-dashboard-titulo">
           <div>
             <h3>Buscar en el inventario</h3>
-
             <p>Localiza rápidamente una dirección, equipo o responsable</p>
           </div>
 
@@ -462,7 +490,6 @@ function PanelDashboard({ direcciones, segmentos }) {
             {resultadosBusqueda.length === 0 ? (
               <div className="dashboard-sin-resultados">
                 <Search size={27} />
-
                 <span>No se encontraron coincidencias.</span>
               </div>
             ) : (
@@ -487,7 +514,6 @@ function PanelDashboard({ direcciones, segmentos }) {
                     <strong>
                       {direccion.dispositivo || "Sin dispositivo"}
                     </strong>
-
                     <span>{direccion.hostname || "Sin hostname"}</span>
                   </div>
 
@@ -520,7 +546,6 @@ function PanelDashboard({ direcciones, segmentos }) {
           <div className="panel-dashboard-titulo panel-dashboard-con-filtro">
             <div>
               <h3>Capacidad por estado</h3>
-
               <p>Distribución sobre las direcciones asignables</p>
             </div>
 
@@ -550,7 +575,6 @@ function PanelDashboard({ direcciones, segmentos }) {
 
               <div>
                 <strong>{segmentoActivo.nombre}</strong>
-
                 <span>
                   {segmentoActivo.cidr}
                   {segmentoActivo.vlan ? ` · VLAN ${segmentoActivo.vlan}` : ""}
@@ -578,7 +602,6 @@ function PanelDashboard({ direcciones, segmentos }) {
               >
                 <div>
                   <strong>{totalGrafica.toLocaleString("es-MX")}</strong>
-
                   <span>Capacidad</span>
                 </div>
               </div>
@@ -608,7 +631,6 @@ function PanelDashboard({ direcciones, segmentos }) {
           <div className="panel-dashboard-titulo">
             <div>
               <h3>Capacidad por ubicación</h3>
-
               <p>Uso de direcciones por cada sede</p>
             </div>
 
@@ -629,7 +651,6 @@ function PanelDashboard({ direcciones, segmentos }) {
                   <div className="fila-barra-etiqueta">
                     <div>
                       <MapPin size={15} />
-
                       <span>{ubicacion.nombre}</span>
                     </div>
 
@@ -670,11 +691,11 @@ function PanelDashboard({ direcciones, segmentos }) {
           )}
         </article>
       </div>
+
       <article className="panel dispositivos-dashboard">
         <div className="panel-dashboard-titulo">
           <div>
             <h3>Dispositivos registrados</h3>
-
             <p>Recuento según el valor registrado en el campo dispositivo</p>
           </div>
 
@@ -741,12 +762,153 @@ function PanelDashboard({ direcciones, segmentos }) {
           </div>
         )}
       </article>
+
+      <div className="dashboard-cuadricula dashboard-cuadricula-analisis">
+        <article className="panel responsables-dashboard">
+          <div className="panel-dashboard-titulo">
+            <div>
+              <h3>Distribución por responsable</h3>
+              <p>Direcciones administradas por persona o área</p>
+            </div>
+
+            <UsersRound size={21} />
+          </div>
+
+          {estadisticas.responsables.length === 0 ? (
+            <div className="dashboard-sin-datos">
+              No existen responsables para mostrar.
+            </div>
+          ) : (
+            <div className="lista-responsables-dashboard">
+              {estadisticas.responsables.map((responsable, indice) => {
+                const maximo = estadisticas.responsables[0]?.cantidad || 1;
+
+                return (
+                  <div
+                    className="responsable-dashboard-item"
+                    key={responsable.nombre}
+                  >
+                    <div className="responsable-dashboard-datos">
+                      <div>
+                        <span>{indice + 1}</span>
+                        <strong>{responsable.nombre}</strong>
+                      </div>
+
+                      <div>
+                        <strong>
+                          {responsable.cantidad.toLocaleString("es-MX")}
+                        </strong>
+
+                        <small>
+                          {mostrarPorcentaje(
+                            responsable.cantidad,
+                            estadisticas.direccionesSeleccionadas.length,
+                          )}
+                        </small>
+                      </div>
+                    </div>
+
+                    <div className="barra-responsable-dashboard">
+                      <span
+                        style={{
+                          width: `${limitarPorcentaje(
+                            porcentajeExacto(responsable.cantidad, maximo),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </article>
+
+        <article className="panel top-segmentos-dashboard">
+          <div className="panel-dashboard-titulo">
+            <div>
+              <h3>Top 5 de segmentos</h3>
+              <p>Segmentos con mayor utilización de direcciones</p>
+            </div>
+
+            <Trophy size={21} />
+          </div>
+
+          {estadisticas.topSegmentos.length === 0 ? (
+            <div className="dashboard-sin-datos">
+              No existen segmentos para mostrar.
+            </div>
+          ) : (
+            <div className="lista-top-segmentos">
+              {estadisticas.topSegmentos.map((segmento, indice) => (
+                <div className="top-segmento-item" key={segmento.id}>
+                  <div className="top-segmento-datos">
+                    <div>
+                      <span
+                        className={`top-segmento-posicion posicion-${
+                          indice + 1
+                        }`}
+                      >
+                        {indice + 1}
+                      </span>
+
+                      <div>
+                        <strong>{segmento.nombre}</strong>
+
+                        <small>
+                          {segmento.cidr} ·{" "}
+                          {segmento.ubicacion || "Sin ubicación"}
+                        </small>
+                      </div>
+                    </div>
+
+                    <div>
+                      <strong>
+                        {mostrarPorcentaje(
+                          Number(segmento.asignadas || 0),
+                          Number(segmento.capacidad || 0),
+                        )}
+                      </strong>
+
+                      <small>
+                        {Number(segmento.asignadas || 0).toLocaleString(
+                          "es-MX",
+                        )}
+                        {" / "}
+                        {Number(segmento.capacidad || 0).toLocaleString(
+                          "es-MX",
+                        )}
+                      </small>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`barra-top-segmento ${
+                      segmento.porcentajeUso >= 90
+                        ? "critica"
+                        : segmento.porcentajeUso >= 80
+                          ? "advertencia"
+                          : ""
+                    }`}
+                  >
+                    <span
+                      style={{
+                        width: `${limitarPorcentaje(segmento.porcentajeUso)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+      </div>
+
       <div className="dashboard-cuadricula dashboard-cuadricula-control">
         <article className="panel calidad-dashboard">
           <div className="panel-dashboard-titulo">
             <div>
               <h3>Calidad del inventario</h3>
-
               <p>Nivel de información completa en los registros</p>
             </div>
 
@@ -824,7 +986,6 @@ function PanelDashboard({ direcciones, segmentos }) {
           <div className="panel-dashboard-titulo">
             <div>
               <h3>Centro de alertas</h3>
-
               <p>Situaciones que requieren revisión</p>
             </div>
 
@@ -840,7 +1001,6 @@ function PanelDashboard({ direcciones, segmentos }) {
           {totalAlertas === 0 ? (
             <div className="dashboard-sin-alertas">
               <CircleCheck size={34} />
-
               <strong>Inventario sin alertas</strong>
 
               <span>
@@ -905,7 +1065,6 @@ function PanelDashboard({ direcciones, segmentos }) {
         <div className="panel-dashboard-titulo">
           <div>
             <h3>Utilización por segmento</h3>
-
             <p>Direcciones asignadas respecto a su capacidad utilizable</p>
           </div>
 
