@@ -567,6 +567,10 @@ function App() {
         ) : vista === "topologia" ? (
           <PanelTopologia direcciones={direcciones} segmentos={segmentos} />
         ) : vista === "usuarios" && esAdministrador ? (
+          <PanelUsuarios usuarioActual={usuarioSesion} />
+        ) : vista === "auditoria" && esAdministrador ? (
+          <PanelAuditoria />
+        ) : vista === "respaldos" && esAdministrador ? (
           <PanelRespaldos />
         ) : (
           <>
