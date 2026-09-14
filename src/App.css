@@ -3743,3 +3743,95 @@ button:disabled {
     min-width: 70px;
   }
 }
+/* Agregar al final de src/App.css */
+
+.filtros-topologia-ampliados {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.8fr) repeat(3, minmax(180px, 1fr)) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.selector-vista-topologia {
+  min-width: 210px;
+}
+
+.nodo-topologia.segmento em {
+  display: block;
+  margin-top: 5px;
+  color: #2563eb;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.nodo-topologia.red-principal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #0f766e;
+}
+
+.nodo-topologia.red-principal div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nodo-topologia.red-principal span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.ayuda-topologia {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.tabla-conexiones-topologia {
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.tabla-conexiones-topologia tr {
+  cursor: pointer;
+}
+
+.tabla-conexiones-topologia tbody tr:hover {
+  background: #eff6ff;
+}
+
+.tabla-conexiones-topologia td small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+}
+
+.topologia-tabla-vacia {
+  display: flex;
+  min-height: 300px;
+  margin-top: 16px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #64748b;
+}
+
+@media (max-width: 1250px) {
+  .filtros-topologia-ampliados {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .filtros-topologia-ampliados {
+    grid-template-columns: 1fr;
+  }
+
+  .selector-vista-topologia {
+    min-width: 0;
+  }
+}
