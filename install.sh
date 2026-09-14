@@ -349,7 +349,7 @@ CREATE TABLE IF NOT EXISTS segmentos_red (
   actualizado_en TIMESTAMP
     DEFAULT CURRENT_TIMESTAMP
     ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_segmento_red (direccion_red, prefijo),
+  UNIQUE KEY uk_segmento_red_ubicacion (direccion_red,prefijo,ubicacion),
   CONSTRAINT chk_prefijo
     CHECK (prefijo BETWEEN 0 AND 32),
   CONSTRAINT chk_vlan

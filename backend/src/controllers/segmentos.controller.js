@@ -43,11 +43,24 @@ function validarGatewaySegmento(gateway, direccionRed, prefijo) {
 
   return null;
 }
+
+function normalizarUbicacion(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 async function buscarSegmentoSolapado(
   direccionRed,
   prefijo,
+  ubicacion,
   segmentoExcluirId = null,
 ) {
+  const nuevaUbicacion = normalizarUbicacion(ubicacion);
+
   const nuevaRedInicio = ipAEntero(obtenerDireccionRed(direccionRed, prefijo));
 
   const nuevaRedFin = ipAEntero(obtenerBroadcast(direccionRed, prefijo));
@@ -68,6 +81,16 @@ async function buscarSegmentoSolapado(
       segmentoExcluirId !== null &&
       String(segmento.id) === String(segmentoExcluirId)
     ) {
+      continue;
+    }
+
+    const ubicacionExistente = normalizarUbicacion(segmento.ubicacion);
+
+    /*
+     * Los rangos repetidos se permiten cuando
+     * pertenecen a ubicaciones diferentes.
+     */
+    if (ubicacionExistente !== nuevaUbicacion) {
       continue;
     }
 
@@ -97,13 +120,19 @@ async function buscarSegmentoSolapado(
   return null;
 }
 
-function responderSolapamiento(res, direccionRed, prefijo, segmento) {
+function responderSolapamiento(
+  res,
+  direccionRed,
+  prefijo,
+  ubicacion,
+  segmento,
+) {
   const nuevoBroadcast = obtenerBroadcast(direccionRed, prefijo);
 
   return res.status(409).json({
     mensaje:
-      `No se puede guardar ${direccionRed}/${prefijo} porque se superpone con el segmento ` +
-      `"${segmento.nombre}" (${segmento.cidr}).`,
+      `No se puede guardar ${direccionRed}/${prefijo} en "${ubicacion}" porque se superpone con ` +
+      `"${segmento.nombre}" (${segmento.cidr}) de la misma ubicación.`,
     conflicto: {
       segmentoId: segmento.id,
       nombre: segmento.nombre,
@@ -266,6 +295,7 @@ export async function crearSegmento(req, res, next) {
     const segmentoSolapado = await buscarSegmentoSolapado(
       redNormalizada,
       prefijoNumerico,
+      ubicacion.trim(),
     );
 
     if (segmentoSolapado) {
@@ -395,6 +425,7 @@ export async function actualizarSegmento(req, res, next) {
     const segmentoSolapado = await buscarSegmentoSolapado(
       redNormalizada,
       prefijoNumerico,
+      ubicacion.trim(),
     );
 
     if (segmentoSolapado) {
