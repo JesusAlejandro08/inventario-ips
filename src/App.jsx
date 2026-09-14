@@ -348,6 +348,15 @@ function App() {
     setModalDireccion(true);
   }
 
+  function editarDesdeDetalle(ip, registro) {
+    abrirEditarDireccion({
+      ...registro,
+      ip,
+      segmentoId: segmentoDetalle,
+    });
+
+    setSegmentoDetalle(null);
+  }
   async function exportarCsv() {
     setExportandoCsv(true);
     setErrorGeneral("");
@@ -716,6 +725,7 @@ function App() {
           segmentoId={segmentoDetalle}
           cerrar={() => setSegmentoDetalle(null)}
           asignarDireccion={asignarDesdeDetalle}
+          editarDireccion={editarDesdeDetalle}
           puedeAsignar={esAdministrador}
         />
       )}

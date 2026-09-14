@@ -5,6 +5,7 @@ import {
   CirclePlus,
   LoaderCircle,
   Network,
+  Pencil,
   Router,
   X,
 } from "lucide-react";
@@ -14,6 +15,7 @@ function DetalleSegmento({
   segmentoId,
   cerrar,
   asignarDireccion,
+  editarDireccion,
   puedeAsignar,
 }) {
   const [detalle, setDetalle] = useState(null);
@@ -198,6 +200,19 @@ function DetalleSegmento({
                         <small>
                           {direccion.registro.responsable || "Sin responsable"}
                         </small>
+
+                        {puedeAsignar && (
+                          <button
+                            type="button"
+                            className="boton-editar-direccion"
+                            onClick={() =>
+                              editarDireccion(direccion.ip, direccion.registro)
+                            }
+                          >
+                            <Pencil size={14} />
+                            Editar
+                          </button>
+                        )}
                       </div>
                     ) : direccion.disponible && puedeAsignar ? (
                       <button
