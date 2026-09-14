@@ -5,7 +5,7 @@ import PanelAuditoria from "./components/PanelAuditoria";
 import PanelRespaldos from "./components/PanelRespaldos";
 import ModalImportarCsv from "./components/ModalImportarCsv";
 import PanelDashboard from "./components/PanelDashboard";
-import PanelTopologia from "./components/PanelTopologia";
+// import PanelTopologia from "./components/PanelTopologia";
 import {
   CirclePlus,
   LoaderCircle,
@@ -525,13 +525,14 @@ function App() {
             <span>{segmentos.length}</span>
           </button>
 
+          {/*
           <button
             className={vista === "topologia" ? "activo" : ""}
             onClick={() => cambiarVista("topologia")}
           >
             <Share2 size={18} />
             Topología
-          </button>
+          </button>*/}
           {esAdministrador && (
             <button
               className={vista === "usuarios" ? "activo" : ""}
@@ -564,8 +565,6 @@ function App() {
 
         {vista === "dashboard" ? (
           <PanelDashboard direcciones={direcciones} segmentos={segmentos} />
-        ) : vista === "topologia" ? (
-          <PanelTopologia direcciones={direcciones} segmentos={segmentos} />
         ) : vista === "usuarios" && esAdministrador ? (
           <PanelUsuarios usuarioActual={usuarioSesion} />
         ) : vista === "auditoria" && esAdministrador ? (
