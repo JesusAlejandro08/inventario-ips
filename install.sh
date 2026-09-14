@@ -379,10 +379,10 @@ UNIQUE KEY uk_segmento_direccion_ip (segmento_id,direccion_ip),
   KEY idx_segmento_id (segmento_id),
   KEY idx_estado (estado),
   CONSTRAINT fk_ip_segmento
-    FOREIGN KEY (segmento_id)
-    REFERENCES segmentos_red(id)
-    ON UPDATE CASCADE
-    ON DELETE RESTRICT
+  FOREIGN KEY (segmento_id)
+  REFERENCES segmentos_red(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS usuarios (

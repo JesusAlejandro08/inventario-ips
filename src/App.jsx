@@ -323,13 +323,47 @@ function App() {
   }
 
   async function borrarSegmento(segmento) {
-    const confirmar = window.confirm(`¿Eliminar el segmento ${segmento.cidr}?`);
+    const asignadas = Number(segmento.asignadas || 0);
 
-    if (!confirmar) return;
+    const advertencia =
+      asignadas > 0
+        ? `El segmento ${segmento.nombre} (${segmento.cidr}) contiene ${asignadas} ${
+            asignadas === 1
+              ? "dirección IP registrada"
+              : "direcciones IP registradas"
+          }.\n\nTodas serán eliminadas permanentemente.`
+        : `El segmento ${segmento.nombre} (${segmento.cidr}) será eliminado permanentemente.`;
+
+    const primeraConfirmacion = window.confirm(advertencia);
+
+    if (!primeraConfirmacion) {
+      return;
+    }
+
+    const confirmacion = window.prompt("Escribe ELIMINAR para confirmar:");
+
+    if (confirmacion !== "ELIMINAR") {
+      setErrorGeneral(
+        "La eliminación fue cancelada porque la confirmación no coincide.",
+      );
+
+      return;
+    }
+
+    setErrorGeneral("");
 
     try {
       await eliminarSegmento(segmento.id);
+
+      setMensajeGeneral(
+        `El segmento ${segmento.nombre} y sus ${asignadas} direcciones fueron eliminados correctamente.`,
+      );
+
       await cargarDatos();
+
+      setTimeout(() => {
+        setMensajeGeneral("");
+      }, 5000);
     } catch (error) {
       setErrorGeneral(error.message);
     }
