@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rm, stat, unlink } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+
+import { mkdir, open, readdir, rm, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -167,7 +168,110 @@ function ejecutarRestauracion(nombre) {
     });
   });
 }
+async function validarArchivoGzip(archivo) {
+  const descriptor = await open(archivo, "r");
 
+  try {
+    const cabecera = Buffer.alloc(2);
+
+    const { bytesRead } = await descriptor.read(
+      cabecera,
+      0,
+      cabecera.length,
+      0,
+    );
+
+    /*
+     * Todo archivo gzip debe comenzar con
+     * los bytes 1F 8B.
+     */
+    if (bytesRead !== 2 || cabecera[0] !== 0x1f || cabecera[1] !== 0x8b) {
+      throw crearError(
+        "El archivo seleccionado no es un respaldo gzip válido.",
+        400,
+      );
+    }
+  } finally {
+    await descriptor.close();
+  }
+}
+export async function importarRespaldo(req, res, next) {
+  let archivoTemporal;
+  let archivoDestino;
+
+  try {
+    if (!req.file) {
+      throw crearError("Debes seleccionar un archivo .sql.gz.", 400);
+    }
+
+    archivoTemporal = req.file.path;
+
+    if (!req.file.originalname.toLowerCase().endsWith(".sql.gz")) {
+      throw crearError(
+        "Solamente se permiten respaldos con extensión .sql.gz.",
+        400,
+      );
+    }
+
+    await validarArchivoGzip(archivoTemporal);
+
+    const informacion = await stat(archivoTemporal);
+
+    if (informacion.size === 0) {
+      throw crearError("El respaldo seleccionado está vacío.", 400);
+    }
+
+    await mkdir(DIRECTORIO_RESPALDOS, {
+      recursive: true,
+      mode: 0o750,
+    });
+
+    const nombre = `inventario_ips-${fechaArchivo()}.sql.gz`;
+
+    archivoDestino = path.join(DIRECTORIO_RESPALDOS, nombre);
+
+    /*
+     * Se copia mediante streams porque /tmp y
+     * /var/backups podrían estar en sistemas
+     * de archivos diferentes.
+     */
+    await pipeline(
+      createReadStream(archivoTemporal),
+      createWriteStream(archivoDestino, {
+        mode: 0o600,
+        flags: "wx",
+      }),
+    );
+
+    await unlink(archivoTemporal).catch(() => {});
+
+    archivoTemporal = null;
+
+    res.status(201).json({
+      mensaje: "Respaldo importado correctamente.",
+      respaldo: {
+        nombre,
+        tamano: informacion.size,
+        creadoEn: new Date().toISOString(),
+        nombreOriginal: req.file.originalname,
+      },
+    });
+  } catch (error) {
+    if (archivoTemporal) {
+      await rm(archivoTemporal, {
+        force: true,
+      }).catch(() => {});
+    }
+
+    if (archivoDestino) {
+      await rm(archivoDestino, {
+        force: true,
+      }).catch(() => {});
+    }
+
+    next(error);
+  }
+}
 export async function crearRespaldo(req, res, next) {
   let archivo;
 

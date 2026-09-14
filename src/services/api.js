@@ -230,7 +230,35 @@ async function procesarDescarga(respuesta, nombrePredeterminado) {
 export function listarRespaldos() {
   return solicitar("/respaldos");
 }
+export async function importarRespaldo(archivo) {
+  const token = obtenerToken();
 
+  const formulario = new FormData();
+
+  formulario.append("respaldo", archivo);
+
+  const respuesta = await fetch(`${API_URL}/respaldos/importar`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formulario,
+  });
+
+  const contenido = await respuesta.json().catch(() => null);
+
+  if (!respuesta.ok) {
+    if (respuesta.status === 401) {
+      cerrarSesion();
+    }
+
+    throw new Error(
+      contenido?.mensaje || "No fue posible importar el respaldo.",
+    );
+  }
+
+  return contenido;
+}
 export async function crearRespaldoBaseDatos() {
   const token = obtenerToken();
 

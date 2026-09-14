@@ -7,14 +7,20 @@ import {
   RotateCcw,
   ShieldCheck,
   Trash2,
+  Upload,
 } from "lucide-react";
 import {
   crearRespaldoBaseDatos,
   descargarRespaldo,
   eliminarRespaldo,
+  importarRespaldo,
   listarRespaldos,
   restaurarRespaldo,
 } from "../services/api";
+
+const [archivoImportacion, setArchivoImportacion] = useState(null);
+
+const [importando, setImportando] = useState(false);
 
 function formatoTamano(bytes) {
   if (!bytes) return "0 KB";
@@ -172,8 +178,53 @@ function PanelRespaldos() {
     }
   }
 
+  async function importar() {
+    if (!archivoImportacion) {
+      setMensaje("");
+      setError("Selecciona un respaldo .sql.gz.");
+      return;
+    }
+
+    const nombre = archivoImportacion.name.toLowerCase();
+
+    if (!nombre.endsWith(".sql.gz")) {
+      setMensaje("");
+      setError("Solamente se permiten archivos .sql.gz.");
+      return;
+    }
+
+    setImportando(true);
+    setMensaje("");
+    setError("");
+
+    try {
+      const resultado = await importarRespaldo(archivoImportacion);
+
+      setMensaje(resultado.mensaje || "Respaldo importado correctamente.");
+
+      setArchivoImportacion(null);
+
+      /*
+       * Permite volver a seleccionar el mismo
+       * archivo posteriormente.
+       */
+      const entrada = document.getElementById("archivo-respaldo");
+
+      if (entrada) {
+        entrada.value = "";
+      }
+
+      await cargarRespaldos();
+    } catch (errorSolicitud) {
+      setError(errorSolicitud.message);
+    } finally {
+      setImportando(false);
+    }
+  }
+
   const operacionEnCurso =
     generando ||
+    importando ||
     Boolean(descargando) ||
     Boolean(restaurando) ||
     Boolean(eliminando);
@@ -233,6 +284,56 @@ function PanelRespaldos() {
 
         {generando ? "Generando respaldo..." : "Crear y descargar respaldo"}
       </button>
+
+      <div className="importar-respaldo">
+        <div>
+          <Upload size={22} />
+
+          <div>
+            <strong>Importar respaldo existente</strong>
+
+            <span>Selecciona un archivo comprimido .sql.gz</span>
+          </div>
+        </div>
+
+        <div className="importar-respaldo-controles">
+          <label htmlFor="archivo-respaldo" className="selector-respaldo">
+            <Upload size={17} />
+
+            {archivoImportacion
+              ? archivoImportacion.name
+              : "Seleccionar archivo"}
+          </label>
+
+          <input
+            id="archivo-respaldo"
+            type="file"
+            accept=".sql.gz,application/gzip"
+            disabled={operacionEnCurso}
+            onChange={(evento) => {
+              setArchivoImportacion(evento.target.files?.[0] || null);
+
+              setMensaje("");
+              setError("");
+            }}
+          />
+
+          <button
+            type="button"
+            className="boton-primario"
+            onClick={importar}
+            disabled={operacionEnCurso || !archivoImportacion}
+          >
+            {importando ? (
+              <LoaderCircle className="girando" size={18} />
+            ) : (
+              <Upload size={18} />
+            )}
+
+            {importando ? "Importando..." : "Agregar respaldo"}
+          </button>
+        </div>
+      </div>
 
       <div className="lista-respaldos">
         <h3>Respaldos almacenados</h3>
