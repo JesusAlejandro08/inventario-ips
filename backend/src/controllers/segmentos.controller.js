@@ -296,6 +296,7 @@ export async function crearSegmento(req, res, next) {
       redNormalizada,
       prefijoNumerico,
       ubicacion.trim(),
+      req.params.id,
     );
 
     if (segmentoSolapado) {
@@ -303,6 +304,7 @@ export async function crearSegmento(req, res, next) {
         res,
         redNormalizada,
         prefijoNumerico,
+        ubicacion.trim(),
         segmentoSolapado,
       );
     }
@@ -426,6 +428,7 @@ export async function actualizarSegmento(req, res, next) {
       redNormalizada,
       prefijoNumerico,
       ubicacion.trim(),
+      req.params.id,
     );
 
     if (segmentoSolapado) {
@@ -433,6 +436,7 @@ export async function actualizarSegmento(req, res, next) {
         res,
         redNormalizada,
         prefijoNumerico,
+        ubicacion.trim(),
         segmentoSolapado,
       );
     }
