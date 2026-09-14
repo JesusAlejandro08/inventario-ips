@@ -2341,3 +2341,115 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+.panel-dashboard-con-filtro {
+  align-items: center;
+}
+
+.filtro-dashboard {
+  min-width: 265px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #557092;
+}
+
+.filtro-dashboard select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 34px 8px 11px;
+  border: 1px solid #d1dceb;
+  border-radius: 9px;
+  background: #fff;
+  color: #253958;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.segmento-seleccionado-dashboard {
+  margin: -5px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #cfe0f7;
+  border-radius: 10px;
+  background: #f3f8ff;
+  color: #2563eb;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.segmento-seleccionado-dashboard > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.segmento-seleccionado-dashboard > div:last-child {
+  color: #526987;
+  flex-direction: row;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.segmento-seleccionado-dashboard span {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.ubicacion-dashboard {
+  gap: 8px;
+}
+
+.fila-barra-etiqueta > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detalle-ubicacion-dashboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #718096;
+  font-size: 0.78rem;
+}
+
+.detalle-ubicacion-dashboard strong {
+  color: #2563eb;
+}
+
+.ubicacion-segmento-dashboard {
+  margin-top: 2px;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 800px) {
+  .panel-dashboard-con-filtro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filtro-dashboard {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .segmento-seleccionado-dashboard {
+    grid-template-columns: auto 1fr;
+  }
+
+  .segmento-seleccionado-dashboard > div:last-child {
+    grid-column: 2;
+  }
+
+  .detalle-ubicacion-dashboard {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}
