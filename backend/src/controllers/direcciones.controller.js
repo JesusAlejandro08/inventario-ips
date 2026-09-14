@@ -62,6 +62,10 @@ function validarDireccionEnSegmento(ip, segmento) {
     return "No puedes asignar la dirección de broadcast.";
   }
 
+  if (segmento.gateway && ip === segmento.gateway) {
+    return `La IP ${ip} está reservada como gateway del segmento.`;
+  }
+
   return null;
 }
 

@@ -8,9 +8,47 @@ import {
   validarIPv4,
 } from "../utils/red.js";
 
+function calcularCapacidadAsignable(prefijo, gateway) {
+  const capacidadRango = calcularCapacidad(prefijo);
+
+  return Math.max(capacidadRango - (gateway ? 1 : 0), 0);
+}
+
+function validarGatewaySegmento(gateway, direccionRed, prefijo) {
+  if (!gateway) {
+    return null;
+  }
+
+  const gatewayLimpio = gateway.trim();
+
+  if (!validarIPv4(gatewayLimpio)) {
+    return "El gateway no es una IPv4 válida.";
+  }
+
+  const redGateway = obtenerDireccionRed(gatewayLimpio, prefijo);
+
+  if (redGateway !== direccionRed) {
+    return `El gateway ${gatewayLimpio} no pertenece al segmento ${direccionRed}/${prefijo}.`;
+  }
+
+  if (prefijo <= 30 && gatewayLimpio === direccionRed) {
+    return "El gateway no puede ser la dirección de red.";
+  }
+
+  const broadcast = obtenerBroadcast(direccionRed, prefijo);
+
+  if (prefijo <= 30 && gatewayLimpio === broadcast) {
+    return "El gateway no puede ser la dirección de broadcast.";
+  }
+
+  return null;
+}
+
 function prepararSegmento(registro) {
   const prefijo = Number(registro.prefijo);
-  const capacidad = calcularCapacidad(prefijo);
+
+  const capacidad = calcularCapacidadAsignable(prefijo, registro.gateway);
+
   const asignadas = Number(registro.direcciones_asignadas || 0);
 
   return {
@@ -37,11 +75,20 @@ export async function listarSegmentos(req, res, next) {
     const registros = await consultar(`
       SELECT
         s.*,
-        COUNT(d.id) AS direcciones_asignadas
+        COUNT(
+          CASE
+            WHEN s.gateway IS NULL
+              OR d.direccion_ip <> s.gateway
+            THEN d.id
+          END
+        ) AS direcciones_asignadas
       FROM segmentos_red s
-      LEFT JOIN direcciones_ip d ON d.segmento_id = s.id
+      LEFT JOIN direcciones_ip d
+        ON d.segmento_id = s.id
       GROUP BY s.id
-      ORDER BY INET_ATON(s.direccion_red), s.prefijo
+      ORDER BY
+        INET_ATON(s.direccion_red),
+        s.prefijo
     `);
 
     res.json(registros.map(prepararSegmento));
@@ -56,9 +103,16 @@ export async function obtenerSegmento(req, res, next) {
       `
         SELECT
           s.*,
-          COUNT(d.id) AS direcciones_asignadas
+          COUNT(
+            CASE
+              WHEN s.gateway IS NULL
+                OR d.direccion_ip <> s.gateway
+              THEN d.id
+            END
+          ) AS direcciones_asignadas
         FROM segmentos_red s
-        LEFT JOIN direcciones_ip d ON d.segmento_id = s.id
+        LEFT JOIN direcciones_ip d
+          ON d.segmento_id = s.id
         WHERE s.id = ?
         GROUP BY s.id
       `,
@@ -90,6 +144,7 @@ export async function crearSegmento(req, res, next) {
     } = req.body;
 
     const prefijoNumerico = Number(prefijo);
+
     const vlanNumerica =
       vlan === "" || vlan === null || vlan === undefined ? null : Number(vlan);
 
@@ -123,9 +178,17 @@ export async function crearSegmento(req, res, next) {
       });
     }
 
-    if (gateway && !validarIPv4(gateway)) {
+    const gatewayNormalizado = gateway?.trim() || null;
+
+    const errorGateway = validarGatewaySegmento(
+      gatewayNormalizado,
+      redNormalizada,
+      prefijoNumerico,
+    );
+
+    if (errorGateway) {
       return res.status(400).json({
-        mensaje: "El gateway no es una IPv4 válida.",
+        mensaje: errorGateway,
       });
     }
 
@@ -157,16 +220,21 @@ export async function crearSegmento(req, res, next) {
         nombre.trim(),
         redNormalizada,
         prefijoNumerico,
-        gateway?.trim() || null,
+        gatewayNormalizado,
         vlanNumerica,
         ubicacion.trim(),
         descripcion?.trim() || null,
       ],
     );
 
-    const creado = await consultar("SELECT * FROM segmentos_red WHERE id = ?", [
-      resultado.insertId,
-    ]);
+    const creado = await consultar(
+      `
+        SELECT *
+        FROM segmentos_red
+        WHERE id = ?
+      `,
+      [resultado.insertId],
+    );
 
     res.status(201).json(
       prepararSegmento({
@@ -198,6 +266,7 @@ export async function actualizarSegmento(req, res, next) {
     } = req.body;
 
     const prefijoNumerico = Number(prefijo);
+
     const vlanNumerica =
       vlan === "" || vlan === null || vlan === undefined ? null : Number(vlan);
 
@@ -226,9 +295,17 @@ export async function actualizarSegmento(req, res, next) {
       });
     }
 
-    if (gateway && !validarIPv4(gateway)) {
+    const gatewayNormalizado = gateway?.trim() || null;
+
+    const errorGateway = validarGatewaySegmento(
+      gatewayNormalizado,
+      redNormalizada,
+      prefijoNumerico,
+    );
+
+    if (errorGateway) {
       return res.status(400).json({
-        mensaje: "El gateway no es una IPv4 válida.",
+        mensaje: errorGateway,
       });
     }
 
@@ -240,6 +317,39 @@ export async function actualizarSegmento(req, res, next) {
     ) {
       return res.status(400).json({
         mensaje: "La VLAN debe estar entre 1 y 4094.",
+      });
+    }
+
+    const direccionesFueraDelNuevoRango = await consultar(
+      `
+          SELECT direccion_ip
+          FROM direcciones_ip
+          WHERE segmento_id = ?
+        `,
+      [req.params.id],
+    );
+
+    const direccionInvalida = direccionesFueraDelNuevoRango.find(
+      (registro) =>
+        obtenerDireccionRed(registro.direccion_ip, prefijoNumerico) !==
+        redNormalizada,
+    );
+
+    if (direccionInvalida) {
+      return res.status(409).json({
+        mensaje: `No se puede cambiar el segmento porque la IP ${direccionInvalida.direccion_ip} quedaría fuera del nuevo rango.`,
+      });
+    }
+
+    const gatewayYaRegistrado = gatewayNormalizado
+      ? direccionesFueraDelNuevoRango.some(
+          (registro) => registro.direccion_ip === gatewayNormalizado,
+        )
+      : false;
+
+    if (gatewayYaRegistrado) {
+      return res.status(409).json({
+        mensaje: `La IP ${gatewayNormalizado} ya está registrada. Elimínala o cámbiala antes de utilizarla como gateway.`,
       });
     }
 
@@ -260,7 +370,7 @@ export async function actualizarSegmento(req, res, next) {
         nombre.trim(),
         redNormalizada,
         prefijoNumerico,
-        gateway?.trim() || null,
+        gatewayNormalizado,
         vlanNumerica,
         ubicacion.trim(),
         descripcion?.trim() || null,
@@ -278,9 +388,16 @@ export async function actualizarSegmento(req, res, next) {
       `
         SELECT
           s.*,
-          COUNT(d.id) AS direcciones_asignadas
+          COUNT(
+            CASE
+              WHEN s.gateway IS NULL
+                OR d.direccion_ip <> s.gateway
+              THEN d.id
+            END
+          ) AS direcciones_asignadas
         FROM segmentos_red s
-        LEFT JOIN direcciones_ip d ON d.segmento_id = s.id
+        LEFT JOIN direcciones_ip d
+          ON d.segmento_id = s.id
         WHERE s.id = ?
         GROUP BY s.id
       `,
@@ -302,7 +419,10 @@ export async function actualizarSegmento(req, res, next) {
 export async function eliminarSegmento(req, res, next) {
   try {
     const resultado = await consultar(
-      "DELETE FROM segmentos_red WHERE id = ?",
+      `
+        DELETE FROM segmentos_red
+        WHERE id = ?
+      `,
       [req.params.id],
     );
 
@@ -324,9 +444,11 @@ export async function eliminarSegmento(req, res, next) {
     next(error);
   }
 }
+
 export async function obtenerDireccionesSegmento(req, res, next) {
   try {
     const pagina = Math.max(Number(req.query.pagina) || 1, 1);
+
     const limite = Math.min(Math.max(Number(req.query.limite) || 256, 1), 256);
 
     const segmentos = await consultar(
@@ -346,7 +468,22 @@ export async function obtenerDireccionesSegmento(req, res, next) {
 
     const segmento = segmentos[0];
     const prefijo = Number(segmento.prefijo);
-    const capacidad = calcularCapacidad(prefijo);
+
+    /*
+     * La capacidad del rango se conserva para
+     * recorrer todas las IP, incluido el gateway.
+     */
+    const capacidadRango = calcularCapacidad(prefijo);
+
+    /*
+     * Esta capacidad descuenta el gateway y es
+     * la que se muestra como asignable.
+     */
+    const capacidadAsignable = calcularCapacidadAsignable(
+      prefijo,
+      segmento.gateway,
+    );
+
     const redNumero = ipAEntero(segmento.direccion_red);
 
     const primerHost = prefijo <= 30 ? redNumero + 1 : redNumero;
@@ -372,44 +509,48 @@ export async function obtenerDireccionesSegmento(req, res, next) {
     );
 
     const inicio = (pagina - 1) * limite;
-    const fin = Math.min(inicio + limite, capacidad);
+
+    const fin = Math.min(inicio + limite, capacidadRango);
+
     const direcciones = [];
 
     for (let indice = inicio; indice < fin; indice += 1) {
       const ip = enteroAIp((primerHost + indice) >>> 0);
 
       const registro = registrosPorIp.get(ip);
+
       const esGateway = segmento.gateway === ip;
 
       direcciones.push({
         ip,
         tipo: esGateway ? "Gateway" : "Host",
-        estado: registro
-          ? registro.estado
-          : esGateway
-            ? "Reservada"
+        estado: esGateway
+          ? "Reservada"
+          : registro
+            ? registro.estado
             : "Disponible",
         disponible: !registro && !esGateway,
-        registro: registro
-          ? {
-              id: registro.id,
-              hostname: registro.hostname,
-              dispositivo: registro.dispositivo,
-              responsable: registro.responsable,
-              ubicacion: registro.ubicacion,
-            }
-          : null,
+        registro:
+          registro && !esGateway
+            ? {
+                id: registro.id,
+                hostname: registro.hostname,
+                dispositivo: registro.dispositivo,
+                responsable: registro.responsable,
+                ubicacion: registro.ubicacion,
+              }
+            : null,
       });
     }
 
-    const gatewayRegistrado = registros.some(
-      (registro) => registro.direccion_ip === segmento.gateway,
-    );
+    const gatewayReservado = segmento.gateway ? 1 : 0;
 
-    const gatewayReservado = segmento.gateway && !gatewayRegistrado ? 1 : 0;
+    const registrosAsignables = registros.filter(
+      (registro) => registro.direccion_ip !== segmento.gateway,
+    ).length;
 
     const totalDisponibles = Math.max(
-      capacidad - registros.length - gatewayReservado,
+      capacidadAsignable - registrosAsignables,
       0,
     );
 
@@ -426,16 +567,16 @@ export async function obtenerDireccionesSegmento(req, res, next) {
         ubicacion: segmento.ubicacion,
       },
       resumen: {
-        capacidad,
-        registradas: registros.length,
+        capacidad: capacidadAsignable,
+        registradas: registrosAsignables,
         disponibles: totalDisponibles,
         gatewayReservado,
       },
       paginacion: {
         pagina,
         limite,
-        total: capacidad,
-        totalPaginas: Math.max(Math.ceil(capacidad / limite), 1),
+        total: capacidadRango,
+        totalPaginas: Math.max(Math.ceil(capacidadRango / limite), 1),
       },
       direcciones,
     });
