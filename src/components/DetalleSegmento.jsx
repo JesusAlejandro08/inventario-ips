@@ -7,6 +7,7 @@ import {
   Network,
   Pencil,
   Router,
+  Trash2,
   X,
 } from "lucide-react";
 import { listarDireccionesSegmento } from "../services/api";
@@ -16,6 +17,7 @@ function DetalleSegmento({
   cerrar,
   asignarDireccion,
   editarDireccion,
+  eliminarDireccion,
   puedeAsignar,
 }) {
   const [detalle, setDetalle] = useState(null);
@@ -202,16 +204,35 @@ function DetalleSegmento({
                         </small>
 
                         {puedeAsignar && (
-                          <button
-                            type="button"
-                            className="boton-editar-direccion"
-                            onClick={() =>
-                              editarDireccion(direccion.ip, direccion.registro)
-                            }
-                          >
-                            <Pencil size={14} />
-                            Editar
-                          </button>
+                          <div className="acciones-direccion-detalle">
+                            <button
+                              type="button"
+                              className="boton-editar-direccion"
+                              onClick={() =>
+                                editarDireccion(
+                                  direccion.ip,
+                                  direccion.registro,
+                                )
+                              }
+                            >
+                              <Pencil size={14} />
+                              Editar
+                            </button>
+
+                            <button
+                              type="button"
+                              className="boton-eliminar-direccion"
+                              onClick={() =>
+                                eliminarDireccion(
+                                  direccion.ip,
+                                  direccion.registro,
+                                )
+                              }
+                            >
+                              <Trash2 size={14} />
+                              Eliminar
+                            </button>
+                          </div>
                         )}
                       </div>
                     ) : direccion.disponible && puedeAsignar ? (

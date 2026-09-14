@@ -2478,3 +2478,45 @@ button:disabled {
   background: #2563eb;
   color: #ffffff;
 }
+
+.acciones-direccion-detalle {
+  width: 100%;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.acciones-direccion-detalle button {
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.acciones-direccion-detalle .boton-editar-direccion {
+  background: #e8f1ff;
+  color: #2563eb;
+}
+
+.acciones-direccion-detalle .boton-editar-direccion:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.acciones-direccion-detalle .boton-eliminar-direccion {
+  background: #feecec;
+  color: #dc2626;
+}
+
+.acciones-direccion-detalle .boton-eliminar-direccion:hover {
+  background: #dc2626;
+  color: #fff;
+}

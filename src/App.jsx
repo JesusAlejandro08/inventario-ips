@@ -347,7 +347,19 @@ function App() {
     setErrorDireccion("");
     setModalDireccion(true);
   }
+  async function eliminarDesdeDetalle(ip, registro) {
+    const confirmar = window.confirm(`¿Eliminar la dirección ${ip}?`);
 
+    if (!confirmar) return;
+
+    try {
+      await eliminarDireccion(registro.id);
+      setSegmentoDetalle(null);
+      await cargarDatos();
+    } catch (error) {
+      setErrorGeneral(error.message);
+    }
+  }
   function editarDesdeDetalle(ip, registro) {
     abrirEditarDireccion({
       ...registro,
@@ -726,6 +738,7 @@ function App() {
           cerrar={() => setSegmentoDetalle(null)}
           asignarDireccion={asignarDesdeDetalle}
           editarDireccion={editarDesdeDetalle}
+          eliminarDireccion={eliminarDesdeDetalle}
           puedeAsignar={esAdministrador}
         />
       )}
